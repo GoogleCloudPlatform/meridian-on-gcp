@@ -15,4 +15,9 @@ The tangible value to customers is to implement a ‘solution accelerator’ tha
 
 Solution accelerators entail code samples that solve common business patterns to support customer adoption at scale, with positioning and a business case, released on Github.
 
+## Quick Installation ⏰
+
+Want to quickly install and use it? Run this [installation notebook 📔](https://colab.sandbox.google.com/github/GoogleCloudPlatform/meridian-on-gcp/blob/main/notebooks/meridian-quick-install.ipynb) on Google Colaboratory and deploy Meridian in between 15-20 minutes.
+
+
 

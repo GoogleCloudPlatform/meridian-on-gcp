@@ -77,6 +77,7 @@ section_close
 
 section_open "Preparing UV development environment"
     # Sync and lock uv
+    uv python pin 3.10
     uv sync
     uv lock
 section_close

@@ -64,6 +64,7 @@ dependencies = [
     "tf-keras>=2.18,<2.19",
     "tensorflow[and-cuda] >= 2.18, < 2.19",
     "urllib3==1.26.18",
+    "invoke==2.2.0",
 ]
 
 [tool.poetry.dependencies]

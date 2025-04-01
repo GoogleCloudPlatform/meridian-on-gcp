@@ -51,6 +51,18 @@ variable "time_zone" {
   default     = "America/New_York"
 }
 
+variable "config_file_path" {
+  type        = string
+  description = "pipelines config file"
+  default     = "config.yaml"
+}
+
+variable "uv_run_alias" {
+  description = "alias for uv run command on the current system"
+  type        = string
+  default     = "uv run"
+}
+
 variable "pipeline_configuration" {
   description = "Pipeline configuration that will alternate certain settings in the config.yaml.tftpl"
   type = map(

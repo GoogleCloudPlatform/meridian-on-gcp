@@ -66,7 +66,7 @@ section_close
 
 section_open "Configuring python 3.10 version"
     # Install python3.10
-    chmod u+w /usr/local/sbin
+    #chmod u+w /usr/local/sbin
     if [ $machine == "Linux" ]; then
         sudo DEBIAN_FRONTEND=noninteractive apt-get -qq -o=Dpkg::Use-Pty=0 install python3.10 --assume-yes
     elif [ $machine == "Darwin" ]; then

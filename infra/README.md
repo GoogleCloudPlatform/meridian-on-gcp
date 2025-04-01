@@ -10,7 +10,7 @@ Note: Make sure you have Owner privileges.
 1. Run the following commands to setup environment variables.
 
 ```bash
-export PROPJECT_ID=YOUR_PROJECT_ID
+export PROJECT_ID=YOUR_PROJECT_ID
 gcloud config set project $PROJECT_ID
 cd ${HOME}
 REPO="meridian-on-gcp"

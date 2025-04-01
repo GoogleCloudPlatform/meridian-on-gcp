@@ -59,9 +59,9 @@ dependencies = [
     "pip==23.3",
     "pylint>=2.6.0",
     "scipy>=1.13.1,<2",
-    "tensorflow>=2.18,<2.19",
-    "tensorflow-probability>=0.25,<0.26",
-    "tf-keras>=2.18,<2.19",
+    #"tensorflow>=2.18,<2.19",
+    #"tensorflow-probability>=0.25,<0.26",
+    #"tf-keras>=2.18,<2.19",
     #"tensorflow[and-cuda] >= 2.18, < 2.19",  ## no need to support GPU, since it is not going to run locally
     "urllib3==1.26.18",
     "invoke==2.2.0",

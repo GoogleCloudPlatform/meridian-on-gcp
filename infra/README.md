@@ -83,7 +83,6 @@ on darwin_amd64
 Create the Terraform variables file by making a copy from the template and set the Terraform variables. Most of the parameters are based on the pre-requisites described here. The sample file has all the required variables listed.
 
 ```bash
-SOURCE_ROOT=${HOME}/${REPO}
 TERRAFORM_RUN_DIR=${SOURCE_ROOT}/infra
 cd ${TERRAFORM_RUN_DIR}
 cp ${TERRAFORM_RUN_DIR}/terraform-sample.tfvars ${TERRAFORM_RUN_DIR}/terraform.tfvars

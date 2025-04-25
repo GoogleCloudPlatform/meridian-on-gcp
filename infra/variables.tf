@@ -22,14 +22,25 @@ variable "main_project_id" {
   description = "Project ID where feature store resources are created"
 }
 
-variable "data_project_id" {
-  description = "Default project to contain the MDS BigQuery datasets"
+variable "mds_project_id" {
+  description = "Default project to contain the Meridian Data BigQuery datasets"
+  type        = string
+}
+
+variable "mds_dataset" {
+  description = "The BigQuery dataset containing the exported meridian data"
   type        = string
 }
 
 variable "google_default_region" {
   default     = "us-central1"
   description = "The default Google Cloud region."
+  type        = string
+}
+
+variable "data_location" {
+  default     = "US"
+  description = "Data location where the data resides in BigQuery"
   type        = string
 }
 
@@ -78,28 +89,28 @@ variable "pipeline_configuration" {
   )
 
   default = {
-    data-analysis = {
+    #data-analysis = {
+    #  execution = {
+    #    schedule = {
+    #      state                    = "PAUSED"
+    #    }
+    #  }
+    #}
+    meridian-pre-modeling = {
       execution = {
         schedule = {
           state                    = "PAUSED"
         }
       }
     }
-    premodeling = {
+    meridian-modeling = {
       execution = {
         schedule = {
           state                    = "PAUSED"
         }
       }
     }
-    modeling = {
-      execution = {
-        schedule = {
-          state                    = "PAUSED"
-        }
-      }
-    }
-    post-modeling = {
+    meridian-post-modeling = {
       execution = {
         schedule = {
           state                    = "PAUSED"

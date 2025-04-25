@@ -14,18 +14,21 @@
 
 import docker, os, yaml
 from argparse import ArgumentParser, ArgumentTypeError
+import logging
 
 
 def run(
-        dockerfile_path: str, 
-        tag: str, 
-        nocache: bool =False, 
+        dockerfile_path: str,
+        dockerfile: str,
+        tag: str,
+        nocache: bool =False,
         quiet: bool =True):
     """
     This function builds and pushes a Docker image to a specified repository.
 
     Args:
         dockerfile_path (str): The path to the Dockerfile.
+        dockerfile (str): The Dockerfile name.
         tag (str): The tag for the Docker image.
         nocache (bool, optional): Whether to disable the Docker cache. Defaults to False.
         quiet (bool, optional): Whether to suppress output from the Docker build process. Defaults to True.
@@ -36,12 +39,24 @@ def run(
     """
 
     client = docker.from_env()
-    client.images.build(path = dockerfile_path, tag=tag, nocache=nocache, quiet=quiet)
+    image, logs = client.images.build(
+        path = dockerfile_path,
+        dockerfile=dockerfile,
+        tag=tag,
+        nocache=nocache,
+        rm=True, # Remove intermediate containers
+        pull=True, # Always attempt to pull a newer version of the base image
+        quiet=quiet)
+
+    for log in logs:
+        if 'stream' in log:
+            logging.info(log['stream'].strip())
+
     client.images.push(repository=tag)
 
 
 def check_extention(
-        file_path: str, 
+        file_path: str,
         type: str = '.yaml'):
     """
     This function checks if a file exists and has the specified extension.
@@ -62,13 +77,13 @@ def check_extention(
 
     if not isinstance(type, str):
         raise ArgumentTypeError("type must be a string")
-    
+
     if os.path.exists(file_path):
         if not file_path.lower().endswith(type):
             raise ArgumentTypeError(f"File provited must be {type}: {file_path}")
     else:
         raise FileNotFoundError(f"{file_path} does not exist")
-    
+
     return file_path
 
 
@@ -81,9 +96,9 @@ if __name__ == "__main__":
         -p: Path to the Dockerfile.
         -nc: Whether to disable the Docker cache (optional, defaults to False).
     """
-    
+
     parser = ArgumentParser()
-    
+
     parser.add_argument("-c", "--config-file",
                     dest="config",
                     required=True,
@@ -95,6 +110,18 @@ if __name__ == "__main__":
                         default=os.path.dirname(__file__), #assumes the docker file is in the same path as this script
                         type=str,
                         help="path to Dockerfile")
+
+    parser.add_argument("-f", "--dockerfile-name",
+                        dest="name",
+                        default="Dockerfile", #assumes the docker file name is Dockerfile
+                        type=str,
+                        help="Custom Dockerfile name")
+
+    parser.add_argument("-hw", "--hardware",
+                        dest="hardware",
+                        default="cpu", #assumes the docker file name is Dockerfile
+                        type=str,
+                        help="CPU/GPU hardware")
 
     parser.add_argument("-nc", '--nocache',
                     dest="nocache",
@@ -112,11 +139,17 @@ if __name__ == "__main__":
     components_params = configs['vertex_ai']['components']
     repo_params = configs['artifact_registry']['pipelines_docker_repo']
 
-    tag =  f"{repo_params['region']}-docker.pkg.dev/{repo_params['project_id']}/{repo_params['name']}/{components_params['base_image_name']}:{components_params['base_image_tag']}"
-    
+    if args.hardware == "cpu":
+        tag =  f"{repo_params['region']}-docker.pkg.dev/{repo_params['project_id']}/{repo_params['name']}/{components_params['base_image_name']}:{components_params['base_image_tag']}"
+    elif args.hardware == "gpu":
+        tag =  f"{repo_params['region']}-docker.pkg.dev/{repo_params['project_id']}/{repo_params['name']}/{components_params['gpu_base_image_name']}:{components_params['gpu_base_image_tag']}"
+
     # This script provides a convenient way to build and push Docker images for Vertex AI pipelines.
     if True:
         import os
-        os.system(f"cd '{args.path}' && gcloud builds submit --project={repo_params['project_id']} --region={repo_params['region']} --tag {tag}")
+        import shutil
+        os.system(f"cd '{args.path}' && cp {args.name} Dockerfile && cd -")
+        os.system(f"cd '{args.path}' && gcloud builds submit --project={repo_params['project_id']} --region={repo_params['region']} --tag={tag}")
+        os.system(f"cd '{args.path}' && rm -f Dockerfile")
     else:
-        run(args.path, tag, args.nocache)
+        run(args.path, args.name, tag, args.nocache)

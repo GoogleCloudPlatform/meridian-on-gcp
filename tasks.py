@@ -15,13 +15,13 @@
 # Invoke tasks - a Python-equivelant of a Makefile or Rakefile.
 # http://www.pyinvoke.org/
 
-# The marketing analytics jumpstart uses the python pyinvoke 
-# library to automate tasks such as applying configuration parameters 
-# to all procedures, datasets, queries, and tables. This allows the user 
-# to easily generate new SQL files for each template without having to 
-# manually apply the configuration parameters. The pyinvoke library also 
-# provides a number of other tasks that can be used to automate other 
-# common tasks, such as running linting checks, applying fixes, and 
+# The marketing analytics jumpstart uses the python pyinvoke
+# library to automate tasks such as applying configuration parameters
+# to all procedures, datasets, queries, and tables. This allows the user
+# to easily generate new SQL files for each template without having to
+# manually apply the configuration parameters. The pyinvoke library also
+# provides a number of other tasks that can be used to automate other
+# common tasks, such as running linting checks, applying fixes, and
 # running unit tests.
 
 # LINTING NOTE: invoke doesn't support annotations in task signatures.
@@ -61,16 +61,16 @@ def apply_config_parameters_to_all_procedures(c, env_name="prod"):
 
     Example usage:
         apply_config_parameters_to_all_procedures(my_task_context, env_name="dev")
-    
+
     Customization:
-        1) Add a new parameter to .sqlx template file: Add the placeholder: 
-            a) Insert the new parameter's placeholder within the template file, surrounded 
-            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear 
+        1) Add a new parameter to .sqlx template file: Add the placeholder:
+            a) Insert the new parameter's placeholder within the template file, surrounded
+            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear
             in the rendered output.
-            b) Add a new key-value pair for the new parameter under the appropriate section of 
-            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder 
+            b) Add a new key-value pair for the new parameter under the appropriate section of
+            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder
             name in the template.
-            c) No code changes required: The existing code already retrieves configuration values 
+            c) No code changes required: The existing code already retrieves configuration values
             and renders them into templates, so it should handle the new parameter without modification.
     """
     # Load configuration file according to environment name
@@ -81,12 +81,12 @@ def apply_config_parameters_to_all_procedures(c, env_name="prod"):
     procedure_dict = conf['bigquery']['procedure']
 
     # Locate file path for all templates to be used
-    template_path = Path.joinpath(current_path,"sql","procedure")
+    template_path = Path.joinpath(current_path,"sql","procedures")
     templateLoader = FileSystemLoader(searchpath=template_path)
     templateEnv = Environment(loader=templateLoader)
-    
+
     # For each file name, apply the config values to the template
-    for template_file in template_path.iterdir(): 
+    for template_file in template_path.iterdir():
         if template_file.is_file() and template_file.resolve().suffix == '.sqlx':
             template = templateEnv.get_template(template_file.name)
             new_sql = template.render(procedure_dict[template_file.stem])
@@ -113,22 +113,22 @@ def apply_config_parameters_to_all_datasets(c, env_name="prod"):
 
     Example usage:
         apply_config_parameters_to_all_datasets(my_task_context, env_name="dev")
-    
+
     Customization:
-        1) Add a new parameter to .sqlx template file: Add the placeholder: 
-            a) Insert the new parameter's placeholder within the template file, surrounded 
-            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear 
+        1) Add a new parameter to .sqlx template file: Add the placeholder:
+            a) Insert the new parameter's placeholder within the template file, surrounded
+            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear
             in the rendered output.
-            b) Add a new key-value pair for the new parameter under the appropriate section of 
-            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder 
+            b) Add a new key-value pair for the new parameter under the appropriate section of
+            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder
             name in the template.
-            c) No code changes required: The existing code already retrieves configuration values 
+            c) No code changes required: The existing code already retrieves configuration values
             and renders them into templates, so it should handle the new parameter without modification.
     """
     # Load configuration file according to environment name
     current_path = Path(__file__).parent.resolve()
     conf = yaml.safe_load(Path.joinpath(current_path,"config", "{}.yaml".format(env_name)).read_text())
-    
+
     # Fetch all dataset configs <key,value> to be applied
     dataset_dict = conf['bigquery']['dataset']
 
@@ -136,9 +136,9 @@ def apply_config_parameters_to_all_datasets(c, env_name="prod"):
     template_path = Path.joinpath(current_path,"sql","schema","dataset")
     templateLoader = FileSystemLoader(searchpath=template_path)
     templateEnv = Environment(loader=templateLoader)
-    
+
     # For each file name, apply the config values to the template
-    for template_file in template_path.iterdir(): 
+    for template_file in template_path.iterdir():
         if template_file.is_file() and template_file.resolve().suffix == '.sqlx':
             template = templateEnv.get_template(template_file.name)
             new_sql = template.render(dataset_dict[template_file.stem])
@@ -165,32 +165,32 @@ def apply_config_parameters_to_all_queries(c, env_name="prod"):
 
     Example usage:
         apply_config_parameters_to_all_queries(my_task_context, env_name="dev")
-    
+
     Customization:
-        1) Add a new parameter to .sqlx template file: Add the placeholder: 
-            a) Insert the new parameter's placeholder within the template file, surrounded 
-            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear 
+        1) Add a new parameter to .sqlx template file: Add the placeholder:
+            a) Insert the new parameter's placeholder within the template file, surrounded
+            by Jinja2's delimiters (e.g., {{ new_parameter }}) where you want its value to appear
             in the rendered output.
-            b) Add a new key-value pair for the new parameter under the appropriate section of 
-            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder 
+            b) Add a new key-value pair for the new parameter under the appropriate section of
+            your config.yaml.tftpl YAML configuration file. Ensure the key matches the placeholder
             name in the template.
-            c) No code changes required: The existing code already retrieves configuration values 
+            c) No code changes required: The existing code already retrieves configuration values
             and renders them into templates, so it should handle the new parameter without modification.
     """
     # Load configuration file according to environment name
     current_path = Path(__file__).parent.resolve()
     conf = yaml.safe_load(Path.joinpath(current_path,"config", "{}.yaml".format(env_name)).read_text())
-    
+
     # Fetch all query configs <key,value> to be applied
     query_dict = conf['bigquery']['query']
 
     # Locate file path for all templates to be used
-    template_path = Path.joinpath(current_path,"sql","query")
+    template_path = Path.joinpath(current_path,"sql","queries")
     templateLoader = FileSystemLoader(searchpath=template_path)
     templateEnv = Environment(loader=templateLoader)
-    
+
     # For each file name, apply the config values to the template
-    for template_file in template_path.iterdir(): 
+    for template_file in template_path.iterdir():
         if template_file.is_file() and template_file.resolve().suffix == '.sqlx':
             template = templateEnv.get_template(template_file.name)
             new_sql = template.render(query_dict[template_file.stem])
@@ -222,7 +222,7 @@ def apply_config_parameters_to_all_tables(c, env_name="prod"):
     # Load configuration file according to environment name
     current_path = Path(__file__).parent.resolve()
     conf = yaml.safe_load(Path.joinpath(current_path,"config", "{}.yaml".format(env_name)).read_text())
-    
+
     # Fetch all query configs <key,value> to be applied
     query_dict = conf['bigquery']['table']
 
@@ -235,10 +235,10 @@ def apply_config_parameters_to_all_tables(c, env_name="prod"):
     schema_path = Path.joinpath(current_path,"sql","schema","table")
 
     # Open the file in read-only mode
-    for template_file in template_path.iterdir(): 
+    for template_file in template_path.iterdir():
         if template_file.is_file() and template_file.resolve().suffix == '.sqlx':
             for schema_file in schema_path.iterdir():
-                if schema_file.is_file() and schema_file.resolve().suffix == '.json' and template_file.resolve().stem == schema_file.resolve().stem: 
+                if schema_file.is_file() and schema_file.resolve().suffix == '.json' and template_file.resolve().stem == schema_file.resolve().stem:
                     with schema_file.open("r", encoding="utf-8") as f:
                         table_schema = str(f.read())
                     table_schema_dict = json.loads(table_schema)

@@ -1,7 +1,7 @@
 # Installation Guide
 
 ## Step 1 - Select a Google Cloud project and open Cloud Shell
-In the Google Cloud Console, navigate to your project and open Cloud Shell. 
+In the Google Cloud Console, navigate to your project and open Cloud Shell.
 
 Note: Make sure you have Owner privileges.
 
@@ -14,7 +14,7 @@ export PROJECT_ID=YOUR_PROJECT_ID
 gcloud config set project $PROJECT_ID
 cd ${HOME}
 REPO="meridian-on-gcp"
-git clone https://github.com/GoogleCloudPlatform/meridian-on-gcp.git
+git clone https://github.com/GoogleCloudPlatform/$REPO.git
 ```
 
 1. Install update uv for running python scripts Install uv that manages the python version and dependecies for the solution.
@@ -60,7 +60,7 @@ To install tfenv, run the following commands:
 # Install via Homebrew or via Arch User Repository (AUR)
 # Follow instructions on https://github.com/tfutils/tfenv
 
-# Now, install the recommended terraform version 
+# Now, install the recommended terraform version
 tfenv install 1.9.7
 tfenv use 1.9.7
 terraform --version

@@ -14,19 +14,19 @@
 
 # This file contains the main configuration for Meridian on GCP solution.
 # This is the main entry point for the Terraform configuration.
-# 
+#
 # The configuration is unique for each environment. If you to deploy the solution is a multi-environment scenario,
 # you can create a separate Terraform configuration for each environment.
-# 
+#
 # This solution is designed to be deployed in a Google Cloud project.
-# The Terraform backend used is Google Cloud Storage. 
+# The Terraform backend used is Google Cloud Storage.
 # The Terraform provider used is Google Cloud.
-# 
-# As a Platform Engineer, you have to keep the terraform.tfvars file and the backend. 
+#
+# As a Platform Engineer, you have to keep the terraform.tfvars file and the backend.
 # The terraform.tfvars file contains the configuration values for the solution.
 # The backend contains the state file.
 
-# Configure the Google Cloud provider region for this solution. 
+# Configure the Google Cloud provider region for this solution.
 # You can set the region in the terraform.tfvars file.
 # The default region is us-central1.
 # You can deploy and migrate the solution across several regions, check the documentation for more information.
@@ -42,14 +42,14 @@ data "google_project" "main_project" {
 
 data "google_project" "data_project" {
   provider   = google
-  project_id = var.data_project_id
+  project_id = var.mds_project_id
 }
 
 # The locals block contains hardcoded values that are used in the configuration for the solution.
 # The locals block is used to define variables that are used in the configuration.
 locals {
   # The source_root_dir is the root directory of the project.
-  source_root_dir = "."
+  source_root_dir = ".."
   # The config_file_name is the name of the config file.
   config_file_name = "config"
   # The uv_run_alias is the alias of the uv run command.
@@ -75,11 +75,11 @@ locals {
 
 
 # Create a configuration file for the solution.
-# the template file is located at 
+# the template file is located at
 # ${local.source_root_dir}/config/${var.global_config_env}.yaml.tftpl.
 # This variable can be set in the terraform.tfvars file. Its default value is "config".
 #
-#The template file contains the configuration for the feature store. 
+#The template file contains the configuration for the feature store.
 #The variables that are replaced with values from the Terraform configuration are:
 # project_id: The ID of the Google Cloud project that the feature store will be created in.
 # project_name: The name of the Google Cloud project that the feature store will be created in.
@@ -93,9 +93,12 @@ resource "local_file" "global_configuration" {
     project_name           = data.google_project.main_project.name
     project_number         = data.google_project.main_project.number
     cloud_region           = var.google_default_region
-    mds_project_id         = var.data_project_id
+    mds_project_id         = var.mds_project_id
+    mds_dataset            = "${var.mds_dataset}"
+    location  = var.data_location
     time_zone = var.time_zone
     pipeline_configuration = var.pipeline_configuration
+
   })
 }
 

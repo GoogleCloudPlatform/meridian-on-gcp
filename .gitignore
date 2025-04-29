@@ -152,6 +152,7 @@ node_modules
 pipeline.json
 training.json
 prediction.json
+pre_modeling.yaml
 
 #pytest
 pytest.ini

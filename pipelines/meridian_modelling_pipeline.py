@@ -1,4 +1,4 @@
-#Copyright 2024 Google LLC
+#Copyright 2025 Google LLC
 #
 #Licensed under the Apache License, Version 2.0 (the "License");
 #you may not use this file except in compliance with the License.
@@ -13,323 +13,155 @@
 #limitations under the License.
 
 import kfp
-from kfp.v2 import compiler, dsl
-from kfp.v2.dsl import (
-    component,
-    Input,
-    Output,
-    Artifact,
-    Dataset,
-    Model
-)
-from google.cloud import aiplatform
-from google_cloud_pipeline_components import aiplatform as gcc_aip
-from typing import NamedTuple
+from kfp import dsl
+from kfp.dsl import Input, Output, Model, Dataset, Artifact, OutputPath
+from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component
+from typing import NamedTuple, Optional
+import google.cloud.aiplatform as aip
+import os
+import shutil
+import tempfile
+import logging # Import logging
+from typing import Optional
+import yaml
 
-# Define pipeline parameters
-PROJECT_ID = "your-project-id"  # Replace with your project ID
-REGION = "us-central1"  # Replace with your desired region
-PIPELINE_ROOT = "gs://your-bucket/pipeline_root"  # Replace with your GCS bucket
-BQ_DATASET = "your_bq_dataset"   # Replace with your BQ dataset
-BQ_TABLE_IN = "your_input_bq_table"  # Replace with your input BQ table
-BQ_TABLE_OUT = "your_output_bq_table"  # Replace with your output BQ table
-GCS_OUTPUT_DIR = "gs://your-bucket/meridian_output"  # Replace with your GCS output directory
-TIMESTAMP = datetime.now().strftime("%Y%m%d%H%M%S")
-BASE_IMAGE = "python:3.9" # or a custom image with required dependencies
-DISPLAY_NAME = "meridian-pipeline-job-" + TIMESTAMP
+config_file_path = os.path.join(os.path.dirname(
+    __file__), '../../config/config.yaml')
 
-# 1.  Data Loading Component (from BigQuery)
-@component(base_image=BASE_IMAGE, packages_to_install=["google-cloud-bigquery", "pandas", "db_dtypes"])
-def load_data_from_bq(
-    project_id: str,
-    bq_dataset: str,
-    bq_table: str,
-    output_data: Output[Dataset],
-):
-    """Loads data from a BigQuery table and saves it to a Dataset artifact."""
-    from google.cloud import bigquery
-    import pandas as pd
+base_image = None
+if os.path.exists(config_file_path):
+    with open(config_file_path, encoding='utf-8') as fh:
+        configs = yaml.full_load(fh)
 
-    client = bigquery.Client(project=project_id)
+    vertex_components_params = configs['vertex_ai']['components']
+    repo_params = configs['artifact_registry']['pipelines_docker_repo']
 
-    query = f"""
-        SELECT *
-        FROM `{project_id}.{bq_dataset}.{bq_table}`
-    """
-    df = client.query(query).to_dataframe()
-    df.to_csv(output_data.path + ".csv", index=False)  # Save as CSV
-    print(f"Data loaded from {project_id}.{bq_dataset}.{bq_table} and saved as CSV.")
-
-    # Add metadata (very important for lineage tracking!)
-    output_data.metadata["source"] = f"bq://{project_id}.{bq_dataset}.{bq_table}"
-    output_data.metadata["format"] = "csv"
-
-# 2. Meridian Processing Component
-@component(
-    base_image=BASE_IMAGE,
-    packages_to_install=[
-        "google-meridian[colab,and-cuda]",
-        "numpy",
-        "pandas",
-        "tensorflow",
-        "tensorflow-probability",
-        "arviz",
-        "psutil",
-        "db_dtypes",  #for dataframe.to_gbq
-        'google-cloud-storage' #for bigquery to save
-
-    ],
-)
-def run_meridian_analysis(
-    input_data: Input[Dataset],
-    project_id: str,
-    bq_dataset: str,
-    output_bq_table: str,
-    gcs_output_dir: str,
-    model_artifact: Output[Model],
-) :
-    """Runs the Meridian analysis, saves results to BQ and GCS, and outputs the model."""
-    import numpy as np
-    import pandas as pd
-    import tensorflow as tf
-    import tensorflow_probability as tfp
-    import arviz as az
-    import IPython
-    from meridian import constants
-    from meridian.data import load
-    from meridian.data import test_utils
-    from meridian.model import model
-    from meridian.model import spec
-    from meridian.model import prior_distribution
-    from meridian.analysis import optimizer
-    from meridian.analysis import analyzer
-    from meridian.analysis import visualizer
-    from meridian.analysis import summarizer
-    from meridian.analysis import formatter
-    from google.cloud import bigquery
-    from google.cloud import storage
-
-    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-    print("Num CPUs Available: ", len(tf.config.experimental.list_physical_devices('CPU')))
-
-    # Load data from the CSV file
-    data_df = pd.read_csv(input_data.path + ".csv")
+    # defines the base_image variable, which specifies the Docker image to be used for the component. This image is retrieved from the config.yaml file, which contains configuration parameters for the project.
+    base_image = f"{repo_params['region']}-docker.pkg.dev/{repo_params['project_id']}/{repo_params['name']}/{vertex_components_params['base_image_name']}:{vertex_components_params['base_image_tag']}"
+    gpu_base_image = f"{repo_params['region']}-docker.pkg.dev/{repo_params['project_id']}/{repo_params['name']}/{vertex_components_params['gpu_base_image_name']}:{vertex_components_params['gpu_base_image_tag']}"
 
 
+import json
 
-    # --- Meridian Code (Adapted from your notebook) ---
-    coord_to_columns = load.CoordToColumns(
-        time='time',
-        geo='geo',
-        controls=['GQV', 'Competitor_Sales'],
-        population='population',
-        kpi='conversions',
-        revenue_per_kpi='revenue_per_conversion',
-        media=[
-            'Channel0_impression',
-            'Channel1_impression',
-            'Channel2_impression',
-            'Channel3_impression',
-            'Channel4_impression',
-        ],
-        media_spend=[
-            'Channel0_spend',
-            'Channel1_spend',
-            'Channel2_spend',
-            'Channel3_spend',
-            'Channel4_spend',
-        ],
-        organic_media=['Organic_channel0_impression'],
-        non_media_treatments=['Promo'],
-    )
+import google.cloud.aiplatform as aiplatform
+import vertexai
 
-    correct_media_to_channel = {
-        'Channel0_impression': 'Channel_0',
-        'Channel1_impression': 'Channel_1',
-        'Channel2_impression': 'Channel_2',
-        'Channel3_impression': 'Channel_3',
-        'Channel4_impression': 'Channel_4',
-    }
-    correct_media_spend_to_channel = {
-        'Channel0_spend': 'Channel_0',
-        'Channel1_spend': 'Channel_1',
-        'Channel2_spend': 'Channel_2',
-        'Channel3_spend': 'Channel_3',
-        'Channel4_spend': 'Channel_4',
-    }
+from google_cloud_pipeline_components.v1.custom_job import utils
+from google_cloud_pipeline_components.preview.custom_job.component import custom_training_job
 
-    # Create a DataLoader (mocking CsvDataLoader for simplicity, as we have the df)
-    class MockLoader:  # Create a simplified loader
-        def __init__(self, df, kpi_type, coord_to_columns, media_to_channel, media_spend_to_channel):
-            self.df = df
-            self.kpi_type = kpi_type
-            self.coord_to_columns = coord_to_columns
-            self.media_to_channel = media_to_channel
-            self.media_spend_to_channel = media_spend_to_channel
+# Get the OAuth2 token.
+# Once you've obtained the OAuth2 token, use it to make an authenticated call
+# to the target audience.
+import google.auth
+from google.auth import impersonated_credentials
+import google.auth.transport.requests
 
-        def load(self):
-            return load.load_and_validate_data(
-                df_all_geos_all_time=self.df,
-                kpi_type=self.kpi_type,
-                coord_to_columns=self.coord_to_columns,
-                media_to_channel=self.media_to_channel,
-                media_spend_to_channel=self.media_spend_to_channel,
-			)
+credentials, _ = google.auth.default()
+request = google.auth.transport.requests.Request()
+credentials.refresh(request)
+credentials.apply(headers = {'user-agent': 'cloud-solutions/mas-meridian-on-gcp-usage-v1.0'})
+credentials.refresh(request)
+if credentials.valid:
+  print('Authenticated')
+
+aiplatform.init(project=PROJECT_ID, location=LOCATION, staging_bucket=BUCKET_URI)
+
+TRAIN_GPU, TRAIN_NGPU = (aiplatform.gapic.AcceleratorType.NVIDIA_TESLA_T4, 1)
+DEPLOY_GPU, DEPLOY_NGPU = (None, None)
+
+GPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-gpu-base-image:dev"
+CPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-cpu-base-image:dev"
+
+MACHINE_TYPE = "n1-standard"
+
+VCPU = "4"
+TRAIN_COMPUTE = MACHINE_TYPE + "-" + VCPU
 
 
-    loader = MockLoader(
-      df=data_df,
-      kpi_type='non_revenue',
-      coord_to_columns=coord_to_columns,
-      media_to_channel=correct_media_to_channel,
-      media_spend_to_channel=correct_media_spend_to_channel,
+# --- Configuration ---
+PROJECT_ID = "YOUR-PROJECT-ID"
+REGION = "us-central1"
+PIPELINE_ROOT = "{}/pipeline_root/machine_settings".format(BUCKET_URI)
+BQ_DATASET = "meridiansampledataset" # Your dataset
+BQ_TABLE_NAME = "meridiantable" # your table name
+BQ_SUMMARY_TABLE_NAME = "meridian_media_summary_report" # Name for the new BQ out table
+OUTPUT_GCS_DIR = f"{PIPELINE_ROOT}/outputs"
+ROI_MU = 0.2
+ROI_SIGMA = 0.9
+N_CHAINS = 7
+N_ADAPT = 500
+N_BURNIN = 500
+N_KEEP = 1000
+RANDOM_SEED = 1
+REPORT_START_DATE = '2021-01-25'
+REPORT_END_DATE = '2024-01-15'
+STANDARD_BASE_IMAGE = "python:3.10-slim"
+GPU_BASE_IMAGE = "gcr.io/deeplearning-platform-release/tf-gpu.2-15.py310"
+MERIDIAN_MODEL_FILENAME = "model_save.pkl"
+PIPELINE_NAME = "meridian-mmm-gpu-bq-pipeline" # pipeline name
+PIPELINE_JSON = f"{PIPELINE_NAME}.json"
 
-    )
-    data = loader.load()
-
-    roi_mu = 0.2
-    roi_sigma = 0.9
-    prior = prior_distribution.PriorDistribution(
-      roi_m=tfp.distributions.LogNormal(roi_mu, roi_sigma, name=constants.ROI_M)
-    )
-    model_spec = spec.ModelSpec(prior=prior)
-    mmm = model.Meridian(input_data=data, model_spec=model_spec)
-
-
-    mmm.sample_prior(500)
-    mmm.sample_posterior(n_chains=7, n_adapt=500, n_burnin=500, n_keep=1000)
-
-    # Budget Optimization
-    budget_optimizer = optimizer.BudgetOptimizer(mmm)
-    optimization_results = budget_optimizer.optimize()
-
-    # --- Output to BigQuery (Example: Optimization Results) ---
-        # Extract results and convert to DataFrame
-    results_df = pd.DataFrame({
-         'channel': optimization_results.channels,
-         'original_spend': optimization_results.original_spend.numpy(),  # Convert to numpy array
-         'original_spend_percent': optimization_results.original_spend_percent.numpy(),
-         'original_response': optimization_results.original_response.numpy(),
-         'original_roi': optimization_results.original_roi.numpy(),
-         'suggested_spend': optimization_results.suggested_spend.numpy(),
-         'suggested_spend_percent': optimization_results.suggested_spend_percent.numpy(),
-         'suggested_response': optimization_results.suggested_response.numpy(),
-         'suggested_roi': optimization_results.suggested_roi.numpy()
-    })
-
-    bq_client = bigquery.Client(project=project_id)
-
-    # Write the DataFrame to BigQuery
-    job_config = bigquery.LoadJobConfig(
-         schema = [
-            bigquery.SchemaField("channel", "STRING"),
-            bigquery.SchemaField("original_spend", "FLOAT"),
-            bigquery.SchemaField("original_spend_percent", "FLOAT"),
-            bigquery.SchemaField("original_response", "FLOAT"),
-            bigquery.SchemaField("original_roi", "FLOAT"),
-            bigquery.SchemaField("suggested_spend", "FLOAT"),
-            bigquery.SchemaField("suggested_spend_percent", "FLOAT"),
-            bigquery.SchemaField("suggested_response", "FLOAT"),
-            bigquery.SchemaField("suggested_roi", "FLOAT"),
-        ],
-
-        write_disposition="WRITE_TRUNCATE",  # Overwrite table if it exists
-    )
-
-    job = bq_client.load_table_from_dataframe(
-        results_df,
-        f"{project_id}.{bq_dataset}.{output_bq_table}",
-        job_config=job_config
-    )
-    job.result()  # Wait for the job to complete
-    print(f"Optimization results written to BigQuery table: {project_id}.{bq_dataset}.{output_bq_table}")
-
-
-    # --- Output to GCS (Example: HTML reports and saved models) ---
-    mmm_summarizer = summarizer.Summarizer(mmm)
-    start_date = '2021-01-25'
-    end_date = '2024-01-15'
-
-    # Save Model Summary
-    model_summary_filename = "model_summary.html"
-    temp_model_summary_path = "/tmp/" + model_summary_filename  # Use a temporary path
-    mmm_summarizer.output_model_results_summary(model_summary_filename, "/tmp", start_date, end_date)
-
-
-    # Save Optimization Summary
-    optimization_summary_filename = "optimization_summary.html"
-    temp_optimization_summary_path = "/tmp/" + optimization_summary_filename
-    optimization_results.output_optimization_summary(optimization_summary_filename, "/tmp")
-
-    # Save the Meridian model
-    model_filename = "saved_mmm.pkl"
-    temp_model_path = "/tmp/" + model_filename
-    model.save_mmm(mmm, temp_model_path)
-
-    # Upload files to GCS
-    storage_client = storage.Client(project=project_id)
-    bucket_name = gcs_output_dir.split("//")[1].split("/")[0] # Extract bucket name
-    bucket_prefix = gcs_output_dir.split(bucket_name + "/")[1]
-    bucket = storage_client.bucket(bucket_name)
-
-    def upload_to_gcs(local_path, gcs_path):
-        blob = bucket.blob(gcs_path)
-        blob.upload_from_filename(local_path)
-        print(f"File {local_path} uploaded to {gcs_path}.")
-
-    upload_to_gcs(temp_model_summary_path, f"{bucket_prefix}/{model_summary_filename}")
-    upload_to_gcs(temp_optimization_summary_path, f"{bucket_prefix}/{optimization_summary_filename}")
-    upload_to_gcs(temp_model_path, f"{bucket_prefix}/{model_filename}")
-
-    # --- Save Model Artifact ---
-    model_artifact.metadata["framework"] = "Meridian"
-    model_artifact.metadata["gcs_path"] = f"{gcs_output_dir}/{model_filename}" # Where the model is
-    model.save_mmm(mmm, model_artifact.path + ".pkl") # Serialize the model
-
-    print(f"Meridian analysis complete.  Results saved to GCS: {gcs_output_dir}")
-
-# Define the pipeline
+# --- Configure logging for components ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 @dsl.pipeline(
-    name="meridian-analysis-pipeline",
-    description="A pipeline that runs Meridian analysis.",
-	pipeline_root=PIPELINE_ROOT,
+    name=PIPELINE_NAME,
+    description="Runs Meridian MMM (GPU) reading from BigQuery, saves summary table to BQ",
+    pipeline_root=PIPELINE_ROOT,
 )
 def meridian_pipeline(
     project_id: str = PROJECT_ID,
     bq_dataset: str = BQ_DATASET,
-    input_bq_table: str = BQ_TABLE_IN,
-    output_bq_table: str = BQ_TABLE_OUT,
-    gcs_output_dir: str = GCS_OUTPUT_DIR,
+    bq_table_name: str = BQ_TABLE_NAME, # Input data table
+    summary_bq_table_name: str = BQ_SUMMARY_TABLE_NAME, # Output summary table
+    output_gcs_dir: str = OUTPUT_GCS_DIR,
+    roi_mu: float = ROI_MU,
+    roi_sigma: float = ROI_SIGMA,
+    n_chains: int = N_CHAINS,
+    n_adapt: int = N_ADAPT,
+    n_burnin: int = N_BURNIN,
+    n_keep: int = N_KEEP,
+    seed: int = RANDOM_SEED,
+    report_start_date: str = REPORT_START_DATE,
+    report_end_date: str = REPORT_END_DATE,
+    summary_report_filename: str = "summary_output.html", # HTML report
+    optimization_report_filename: str = "optimization_output.html",
 ):
-    load_data_task = load_data_from_bq(
-        project_id=project_id, bq_dataset=bq_dataset, bq_table=input_bq_table
-    )
-
-    run_meridian_task = run_meridian_analysis(
-        input_data=load_data_task.outputs["output_data"],
+    # Step 1: Train Model
+    train_task = train_meridian_model(
         project_id=project_id,
         bq_dataset=bq_dataset,
-        output_bq_table=output_bq_table,
-        gcs_output_dir=gcs_output_dir,
-
+        bq_table_name=bq_table_name, # Input table
+        roi_mu=roi_mu, roi_sigma=roi_sigma,
+        n_chains=n_chains, n_adapt=n_adapt, n_burnin=n_burnin, n_keep=n_keep, seed=seed,
     )
+    train_task.set_cpu_limit("16").set_memory_limit("64G")
+    train_task.set_accelerator_limit(1).set_accelerator_type('NVIDIA_TESLA_T4')
 
-# Compile the pipeline
-compiler.Compiler().compile(
-    pipeline_func=meridian_pipeline, package_path="meridian_pipeline.json"
-)
+    # Step 2: Generate Summary Table and Save to BigQuery
+    save_summary_bq_task = generate_and_save_summary_bq(
+        model_artifact=train_task.outputs["output_model"],
+        project_id=project_id,
+        bq_dataset=bq_dataset,
+        bq_table_name=summary_bq_table_name, # Output table name for summary
+    )
+    save_summary_bq_task.set_cpu_limit("16").set_memory_limit("64G") # Adjust resources as needed
 
-# Run the pipeline (using the Vertex AI SDK)
-from datetime import datetime
+    # Step 3: Generate HTML Summary Report (Runs in parallel with BQ save if desired, or after)
+    summary_html_task = generate_summary_report(
+        model_artifact=train_task.outputs["output_model"],
+        output_gcs_dir=output_gcs_dir,
+        report_filename=summary_report_filename,
+        start_date=report_start_date,
+        end_date=report_end_date,
+    )
+    # Can run after BQ save by adding: .after(save_summary_bq_task)
+    summary_html_task.set_cpu_limit("16").set_memory_limit("64G") # Keep original resources
 
-pipeline_job = aiplatform.PipelineJob(
-    display_name=DISPLAY_NAME,
-    template_path="meridian_pipeline.json",
-    job_id=f"meridian-pipeline-{TIMESTAMP}",
-    enable_caching=True,  # Consider disabling during development, but enable for production,
-    project=PROJECT_ID,
-    location=REGION,
-)
-
-pipeline_job.run()
-print("Pipeline submitted. View in the Vertex AI Pipelines UI.")
+    # Step 4: Run Budget Optimization (Runs in parallel with reports if desired, or after)
+    optimization_task = run_budget_optimization(
+        model_artifact=train_task.outputs["output_model"],
+        output_gcs_dir=output_gcs_dir,
+        report_filename=optimization_report_filename,
+    )
+    # Can run after reports by adding: .after(summary_html_task, save_summary_bq_task)
+    optimization_task.set_cpu_limit("16").set_memory_limit("64G") # Keep original resources

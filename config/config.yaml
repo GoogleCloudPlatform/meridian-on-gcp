@@ -181,7 +181,7 @@ vertex_ai:
         # Auto Audience Segmentation involved the dynamic identification of the most visited pages in the website by using the regular expression `reg_expression` and frequency percentual `perc_keep`.
         # This process takes into consideration a date interval defined by the parameters `date_start` and `date_end`.
         pipeline_parameters:
-          #project_id: "meridian-dev-455515"
+          project_id: "meridian-dev-455515"
           #location: "US"
           #dataset: "auto_audience_segmentation"
           #feature_table: "page_path_cumulative_traffic"
@@ -193,8 +193,8 @@ vertex_ai:
           #full_dataset_table: "auto_audience_segmentation_full_dataset"
           #training_table: "auto_audience_segmentation_training_15"
           #inference_table: "auto_audience_segmentation_inference_15"
-          # Increase the percentual `perc_keep` to include more pages in your segmentation, decrease to exclude pages in your segmentation
-          #perc_keep: 50
+          cpu_limit: "8"
+          memory_limit: "8G"
           #query_auto_audience_segmentation_inference_preparation: "
           #  CALL `{auto_audience_segmentation_inference_preparation_procedure_name}`();"
           #query_auto_audience_segmentation_training_preparation: "
@@ -206,7 +206,7 @@ vertex_ai:
         # Check the parameter values above to see if they are used.
         # They typically follow this format {parameter_subsititution_key}.
         # To apply a substitution, make sure you define the pair: {parameter_subsititution_key}: {parameter_subsititution_value}.
-        #pipeline_parameters_substitutions:
+        pipeline_parameters_substitutions: null
         #  date_timezone: "UTC" # used when input_date is None and need to get current date.
         #  auto_audience_segmentation_inference_preparation_procedure_name: "meridian-dev-455515.auto_audience_segmentation.invoke_auto_audience_segmentation_inference_preparation"
         #  auto_audience_segmentation_training_preparation_procedure_name: "meridian-dev-455515.auto_audience_segmentation.invoke_auto_audience_segmentation_training_preparation"
@@ -259,14 +259,8 @@ vertex_ai:
         pipeline_parameters:
           project_id: "meridian-dev-455515"
           location: "US"
-          query_user_segmentation_dimensions: "
-            CALL `{user_segmentation_dimensions_procedure_name}`();"
-          query_user_lookback_metrics: "
-            CALL `{user_lookback_metrics_procedure_name}`();"
-          query_audience_segmentation_inference_preparation: "
-            CALL `{audience_segmentation_inference_preparation_procedure_name}`();"
-          query_audience_segmentation_training_preparation: "
-            CALL `{audience_segmentation_training_preparation_procedure_name}`();"
+          mds_dataset: "meridian_export"
+          table_name: "meridian_table"
           # The `timeout` parameter defines the timeout of the pipeline in seconds.
           # The default value is 3600 seconds (1 hour).
           timeout: 3600.0

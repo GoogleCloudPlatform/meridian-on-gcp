@@ -85,7 +85,9 @@ PIPELINE_ROOT = "{}/pipeline_root/machine_settings".format(BUCKET_URI)
 @component(
     base_image=CPU_TRAIN_IMAGE,
 )
-def meridian_data_analysis_component() -> str:
+def meridian_data_analysis_component(
+    project_id: str,
+) -> str:
 
     import numpy as np
     import pandas as pd

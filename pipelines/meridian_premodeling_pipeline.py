@@ -27,13 +27,19 @@ MEMORY_LIMIT = "8G"
     name="meridian-premodeling-pipeline",
     description="A simple pipeline that imports meridian libs",
 )
-def data_analysis_pipeline():
+def data_analysis_pipeline(
+    project_id: str,
+    cpu_limit: str,
+    memory_limit: str,
+):
 
     meridian_data_analysis = (
-        meridian_data_analysis_component()
+        meridian_data_analysis_component(
+            project_id=project_id
+        )
         .set_display_name("meridian-data-analysis")
-        .set_cpu_limit(CPU_LIMIT)
-        .set_memory_limit(MEMORY_LIMIT)
+        .set_cpu_limit(cpu_limit)
+        .set_memory_limit(memory_limit)
         #.add_node_selector_constraint("NVIDIA_TESLA_T4")
         #.set_gpu_limit(TRAIN_NGPU)
     )

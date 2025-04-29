@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging, yaml,os
-from pipelines.pipeline_ops import upload_pipeline_artefact_registry
+from pipeline_ops import upload_pipeline_artefact_registry
 from argparse import ArgumentParser, ArgumentTypeError
 
 
@@ -26,7 +26,7 @@ def check_extention(file_path: str, type: str = '.yaml'):
         raise FileNotFoundError(f"{file_path} does not exist")
     return file_path
 
-             
+
 if __name__ == "__main__":
     """
     This Python script defines a command-line tool for uploading compiled Vertex AI pipelines to Artifact Registry. It takes the following arguments:
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         -t: (Optional) List of tags for the pipeline artifact.
     """
     logging.basicConfig(level=logging.INFO)
-    
+
     parser = ArgumentParser()
 
     parser.add_argument("-c", "--config-file",
@@ -67,12 +67,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     repo_params={}
-    # Opens the configuration YAML file and extracts the parameters for the 
+    # Opens the configuration YAML file and extracts the parameters for the
     # Artifact Registry repository.
     with open(args.config, encoding='utf-8') as fh:
         repo_params = yaml.full_load(fh)['artifact_registry']['pipelines_repo']
 
-    # Calls the upload_pipeline_artefact_registry function from pipelines.pipeline_ops to 
+    # Calls the upload_pipeline_artefact_registry function from pipelines.pipeline_ops to
     # upload the compiled pipeline to the specified Artifact Registry repository.
     upload_pipeline_artefact_registry(
         template_path=args.filename,

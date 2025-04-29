@@ -32,7 +32,7 @@ locals {
   dataflow_vars                            = local.config_vars.dataflow
   config_bigquery                          = local.config_vars.bigquery
   config_file_path_relative_python_run_dir = "${local.source_root_dir}/config/${var.config_file_path}"
-  components_file_path_relative_python_run_dir = "${local.source_root_dir}/components/"
+  components_file_path_relative_python_run_dir = "${local.source_root_dir}/container/"
   compile_pipelines_tag                    = "v1"
 }
 
@@ -247,7 +247,7 @@ resource "google_artifact_registry_repository" "pipelines_docker_repo" {
 }
 
 locals {
-  base_component_image_dir = "${local.source_root_dir}/python/base_component_image"
+  base_component_image_dir = "${local.source_root_dir}/container"
   component_image_fileset = [
     #"${local.base_component_image_dir}/build-push.py",
     "${local.base_component_image_dir}/BaseImage.dockerfile",
@@ -259,7 +259,7 @@ locals {
   # Vertex AI Pipeline step.
   component_image_content_hash = sha512(join("", [for f in local.component_image_fileset : fileexists(f) ? filesha512(f) : sha512("file-not-found")]))
 
-  pipelines_dir = "${local.source_root_dir}/python/pipelines"
+  pipelines_dir = "${local.source_root_dir}/pipelines"
   pipelines_fileset = [
     #"${local.pipelines_dir}/components/bigquery/component.py",
     #"${local.pipelines_dir}/components/pubsub/component.py",
@@ -331,7 +331,7 @@ resource "google_project_iam_member" "cloud_build_job_service_account" {
 # This resource is used to build and push the base component image that will be used to run each Vertex AI Pipeline step.
 resource "null_resource" "build_push_base_component_image" {
   triggers = {
-    working_dir             = "${local.source_root_dir}/components"
+    working_dir             = "${local.source_root_dir}/container"
     docker_repo_id          = google_artifact_registry_repository.pipelines_docker_repo.id
     docker_repo_create_time = google_artifact_registry_repository.pipelines_docker_repo.create_time
     source_content_hash     = local.component_image_content_hash
@@ -353,7 +353,7 @@ resource "null_resource" "build_push_base_component_image" {
 # This resource is used to build and push the base component image that will be used to run each Vertex AI Pipeline step.
 resource "null_resource" "build_push_base_gpu_component_image" {
   triggers = {
-    working_dir             = "${local.source_root_dir}/components"
+    working_dir             = "${local.source_root_dir}/container"
     docker_repo_id          = google_artifact_registry_repository.pipelines_docker_repo.id
     docker_repo_create_time = google_artifact_registry_repository.pipelines_docker_repo.create_time
     source_content_hash     = local.component_image_content_hash
@@ -419,9 +419,9 @@ resource "null_resource" "compile_pre_modeling_pipeline" {
   # which will upload the pipeline YAML file to the specified Artifact Registry repository. The scheduler function will then schedule the pipeline to run on a regular basis.
   provisioner "local-exec" {
     command     = <<-EOT
-    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.pre-modeling.execution -o pre_modeling.yaml
+    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.meridian-pre-modeling.execution -o pre_modeling.yaml
     ${var.uv_run_alias} python -m uploader -c ${local.config_file_path_relative_python_run_dir} -f pre_modeling.yaml -t ${self.triggers.tag} -t latest
-    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.pre-modeling.execution -i pre_modeling.yaml
+    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.meridian-pre-modeling.execution -i pre_modeling.yaml
     EOT
     working_dir = self.triggers.working_dir
   }
@@ -429,49 +429,49 @@ resource "null_resource" "compile_pre_modeling_pipeline" {
 
 
 # This resource is used to compile and upload the Vertex AI pipeline for feature engineering - auto audience segmentation use case
-resource "null_resource" "compile_modeling_pipeline" {
-  triggers = {
-    working_dir                  = "${local.source_root_dir}/pipelines"
-    tag                          = local.compile_pipelines_tag
-    pipelines_repo_id            = google_artifact_registry_repository.pipelines-repo.id
-    pipelines_repo_create_time   = google_artifact_registry_repository.pipelines-repo.create_time
-    source_content_hash          = local.pipelines_content_hash
-    upstream_resource_dependency = null_resource.compile_pre_modeling_pipeline.id
-  }
+#resource "null_resource" "compile_modeling_pipeline" {
+#  triggers = {
+#    working_dir                  = "${local.source_root_dir}/pipelines"
+#    tag                          = local.compile_pipelines_tag
+#    pipelines_repo_id            = google_artifact_registry_repository.pipelines-repo.id
+#    pipelines_repo_create_time   = google_artifact_registry_repository.pipelines-repo.create_time
+#    source_content_hash          = local.pipelines_content_hash
+#    upstream_resource_dependency = null_resource.compile_pre_modeling_pipeline.id
+#  }
 
   # The provisioner block specifies the command that will be executed to compile and upload the pipeline.
   # This command will execute the compiler function in the pipelines module, which will compile the pipeline YAML file, and the uploader function,
   # which will upload the pipeline YAML file to the specified Artifact Registry repository. The scheduler function will then schedule the pipeline to run on a regular basis.
-  provisioner "local-exec" {
-    command     = <<-EOT
-    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.modeling.execution -o modeling.yaml
-    ${var.uv_run_alias} python -m uploader -c ${local.config_file_path_relative_python_run_dir} -f modeling.yaml -t ${self.triggers.tag} -t latest
-    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.modeling.execution -i modeling.yaml
-    EOT
-    working_dir = self.triggers.working_dir
-  }
-}
+#  provisioner "local-exec" {
+#    command     = <<-EOT
+#    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.modeling.execution -o modeling.yaml
+#    ${var.uv_run_alias} python -m uploader -c ${local.config_file_path_relative_python_run_dir} -f modeling.yaml -t ${self.triggers.tag} -t latest
+#    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.modeling.execution -i modeling.yaml
+#    EOT
+#    working_dir = self.triggers.working_dir
+#  }
+#}
 
 # This resource is used to compile and upload the Vertex AI pipeline for feature engineering - aggregated value based bidding use case
-resource "null_resource" "compile_post_modeling_pipeline" {
-  triggers = {
-    working_dir                  = "${local.source_root_dir}/pipelines"
-    tag                          = local.compile_pipelines_tag
-    pipelines_repo_id            = google_artifact_registry_repository.pipelines-repo.id
-    pipelines_repo_create_time   = google_artifact_registry_repository.pipelines-repo.create_time
-    source_content_hash          = local.pipelines_content_hash
-    upstream_resource_dependency = null_resource.compile_modeling_pipeline.id
-  }
+#resource "null_resource" "compile_post_modeling_pipeline" {
+#  triggers = {
+#    working_dir                  = "${local.source_root_dir}/pipelines"
+#    tag                          = local.compile_pipelines_tag
+#    pipelines_repo_id            = google_artifact_registry_repository.pipelines-repo.id
+#    pipelines_repo_create_time   = google_artifact_registry_repository.pipelines-repo.create_time
+#    source_content_hash          = local.pipelines_content_hash
+#    upstream_resource_dependency = null_resource.compile_modeling_pipeline.id
+#  }
 
   # The provisioner block specifies the command that will be executed to compile and upload the pipeline.
   # This command will execute the compiler function in the pipelines module, which will compile the pipeline YAML file, and the uploader function,
   # which will upload the pipeline YAML file to the specified Artifact Registry repository. The scheduler function will then schedule the pipeline to run on a regular basis.
-  provisioner "local-exec" {
-    command     = <<-EOT
-    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.post-modeling.execution -o post_modeling.yaml
-    ${var.uv_run_alias} python -m uploader -c ${local.config_file_path_relative_python_run_dir} -f post_modeling.yaml -t ${self.triggers.tag} -t latest
-    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.post-modeling.execution -i post_modeling.yaml
-    EOT
-    working_dir = self.triggers.working_dir
-  }
-}
+#  provisioner "local-exec" {
+#    command     = <<-EOT
+#    ${var.uv_run_alias} python -m compiler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.post-modeling.execution -o post_modeling.yaml
+#    ${var.uv_run_alias} python -m uploader -c ${local.config_file_path_relative_python_run_dir} -f post_modeling.yaml -t ${self.triggers.tag} -t latest
+#    ${var.uv_run_alias} python -m scheduler -c ${local.config_file_path_relative_python_run_dir} -p vertex_ai.pipelines.post-modeling.execution -i post_modeling.yaml
+#    EOT
+#    working_dir = self.triggers.working_dir
+#  }
+#}

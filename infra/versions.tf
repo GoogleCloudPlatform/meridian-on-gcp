@@ -32,4 +32,8 @@ terraform {
   provider_meta "google" {
     module_name = "cloud-solutions/mas-meridian-on-gcp-deploy-v1.0" #x-release-please-minor
   }
+
+  provider_meta "google-beta" {
+    module_name = "cloud-solutions/mas-meridian-on-gcp-deploy-v1.0" #x-release-please-minor
+  }
 }

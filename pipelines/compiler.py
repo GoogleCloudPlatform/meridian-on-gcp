@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import importlib, yaml, logging
-from pipelines.pipeline_ops import compile_pipeline, compile_automl_tabular_pipeline
+from pipeline_ops import compile_pipeline, compile_automl_tabular_pipeline
 
 from argparse import ArgumentParser
 '''
@@ -25,36 +25,15 @@ python -m pipelines.compiler -c ../config/conf.yaml -p train_pipeline -o my_comp
 # This dictionary maps pipeline names to their corresponding module and function names.
 # This allows the script to dynamically import the correct pipeline function based on the provided pipeline name.
 pipelines_list = {
-    'vertex_ai.pipelines.feature-creation-auto-audience-segmentation.execution': "pipelines.feature_engineering_pipelines.auto_audience_segmentation_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-aggregated-value-based-bidding.execution': "pipelines.feature_engineering_pipelines.aggregated_value_based_bidding_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-audience-segmentation.execution': "pipelines.feature_engineering_pipelines.audience_segmentation_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-purchase-propensity.execution': "pipelines.feature_engineering_pipelines.purchase_propensity_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-churn-propensity.execution': "pipelines.feature_engineering_pipelines.churn_propensity_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-customer-ltv.execution': "pipelines.feature_engineering_pipelines.customer_lifetime_value_feature_engineering_pipeline",
-    'vertex_ai.pipelines.feature-creation-lead-score-propensity.execution': "pipelines.feature_engineering_pipelines.lead_score_propensity_feature_engineering_pipeline",
-    'vertex_ai.pipelines.auto_segmentation.training': "pipelines.auto_segmentation_pipelines.training_pl",
-    'vertex_ai.pipelines.auto_segmentation.prediction': "pipelines.auto_segmentation_pipelines.prediction_pl",
-    'vertex_ai.pipelines.segmentation.training': "pipelines.segmentation_pipelines.training_pl",
-    'vertex_ai.pipelines.segmentation.prediction': "pipelines.segmentation_pipelines.prediction_pl",
-    'vertex_ai.pipelines.purchase_propensity.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.purchase_propensity.prediction': "pipelines.tabular_pipelines.prediction_binary_classification_pl",
-    'vertex_ai.pipelines.churn_propensity.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.churn_propensity.prediction': "pipelines.tabular_pipelines.prediction_binary_classification_pl",
-    'vertex_ai.pipelines.lead_score_propensity.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.lead_score_propensity.prediction': "pipelines.tabular_pipelines.prediction_binary_classification_pl",
-    'vertex_ai.pipelines.propensity_clv.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.clv.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.clv.prediction': "pipelines.tabular_pipelines.prediction_binary_classification_regression_pl",
-    'vertex_ai.pipelines.value_based_bidding.training': None, # tabular workflows pipelines is precompiled
-    'vertex_ai.pipelines.value_based_bidding.explanation': "pipelines.tabular_pipelines.explanation_tabular_workflow_regression_pl",
-    'vertex_ai.pipelines.reporting_preparation.execution': "pipelines.feature_engineering_pipelines.reporting_preparation_pl",
-    'vertex_ai.pipelines.gemini_insights.execution': "pipelines.feature_engineering_pipelines.gemini_insights_pl",
+    'vertex_ai.pipelines.meridian-pre-modeling.execution': "meridian_premodeling_pipeline.data_analysis_pipeline",
+    #'vertex_ai.pipelines.meridian-modeling.execution': "meridian_modeling_pipeline.aggregated_value_based_bidding_feature_engineering_pipeline",
+    #'vertex_ai.pipelines.meridian-post-modeling.execution': "meridian_postmodeling_pipeline.audience_segmentation_feature_engineering_pipeline",
 } # key should match pipeline names as in the `config.yaml.tftpl` files for automatic compilation
-                
+
 if __name__ == "__main__":
     """
-    This Python code defines a script for compiling Vertex AI pipelines. 
-    This script provides a convenient way to compile Vertex AI pipelines from a configuration file. 
+    This Python code defines a script for compiling Vertex AI pipelines.
+    This script provides a convenient way to compile Vertex AI pipelines from a configuration file.
     It allows users to specify the pipeline name, parameters, and output filename, and it automatically handles the compilation process.
     It takes three arguments:
         -c: Path to the configuration YAML file (config.yaml)
@@ -62,14 +41,14 @@ if __name__ == "__main__":
         -o: The compiled pipeline output filename
     """
     logging.basicConfig(level=logging.INFO)
-    
+
     parser = ArgumentParser()
-    
+
     parser.add_argument("-c", "--config-file",
                         dest="config",
                         required=True,
                         help="path to config YAML file (config.yaml)")
-    
+
     parser.add_argument("-p", '--pipeline-config-name',
                     dest="pipeline",
                     required=True,
@@ -85,7 +64,7 @@ if __name__ == "__main__":
     # Parses the provided command-line arguments. It retrieves the path to the configuration file, the pipeline name, and the output filename.
     args = parser.parse_args()
 
-   
+
 
     pipeline_params={}
     # Opens the configuration file and uses the yaml module to parse it.
@@ -97,7 +76,7 @@ if __name__ == "__main__":
             pipeline_params = pipeline_params[i]
 
     logging.info(pipeline_params)
-    
+
     # The script checks the pipeline type:
     # If the pipeline type is tabular-workflows, it uses the compile_automl_tabular_pipeline function to compile the pipeline.
     # Otherwise, it uses the compile_pipeline function to compile the pipeline.
@@ -114,14 +93,14 @@ if __name__ == "__main__":
     if pipeline_params['type'] == 'tabular-workflows':
         compile_automl_tabular_pipeline(
             template_path = args.output,
-            parameters_path="params.yaml", 
+            parameters_path="params.yaml",
             pipeline_name=pipeline_params['name'],
             pipeline_parameters=pipeline_params['pipeline_parameters'],
             pipeline_parameters_substitutions= pipeline_params['pipeline_parameters_substitutions'],
             exclude_features = pipeline_params['exclude_features'],
             enable_caching=False,
             )
-    else:    
+    else:
         module_name = '.'.join(pipelines_list[args.pipeline].split('.')[:-1])
         function_name = pipelines_list[args.pipeline].split('.')[-1]
         compile_pipeline(

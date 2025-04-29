@@ -121,7 +121,7 @@ vertex_ai:
 
   # This pipelines block contains configuration parameters for the Vertex AI pipelines.
   # The current pipelines are:
-  # - meridian-premodeling
+  # - meridian-pre-modeling
   # - meridian-modeling
   # - meridian-post-modeling
   pipelines:
@@ -181,35 +181,35 @@ vertex_ai:
         # Auto Audience Segmentation involved the dynamic identification of the most visited pages in the website by using the regular expression `reg_expression` and frequency percentual `perc_keep`.
         # This process takes into consideration a date interval defined by the parameters `date_start` and `date_end`.
         pipeline_parameters:
-          project_id: "${project_id}"
-          location: "${location}"
-          dataset: "auto_audience_segmentation"
-          feature_table: "page_path_cumulative_traffic"
-          date_start: "2024-01-01"
-          date_end: "2024-07-01"
-          mds_project_id: "${mds_project_id}"
-          mds_dataset: "${mds_dataset}"
-          stored_procedure_name: "auto_audience_segmentation_dataset_preparation"
-          full_dataset_table: "auto_audience_segmentation_full_dataset"
+          #project_id: "${project_id}"
+          #location: "${location}"
+          #dataset: "auto_audience_segmentation"
+          #feature_table: "page_path_cumulative_traffic"
+          #date_start: "2024-01-01"
+          #date_end: "2024-07-01"
+          #mds_project_id: "${mds_project_id}"
+          #mds_dataset: "${mds_dataset}"
+          #stored_procedure_name: "auto_audience_segmentation_dataset_preparation"
+          #full_dataset_table: "auto_audience_segmentation_full_dataset"
           #training_table: "auto_audience_segmentation_training_15"
           #inference_table: "auto_audience_segmentation_inference_15"
           # Increase the percentual `perc_keep` to include more pages in your segmentation, decrease to exclude pages in your segmentation
-          perc_keep: 50
-          query_auto_audience_segmentation_inference_preparation: "
-            CALL `{auto_audience_segmentation_inference_preparation_procedure_name}`();"
-          query_auto_audience_segmentation_training_preparation: "
-            CALL `{auto_audience_segmentation_training_preparation_procedure_name}`();"
+          #perc_keep: 50
+          #query_auto_audience_segmentation_inference_preparation: "
+          #  CALL `{auto_audience_segmentation_inference_preparation_procedure_name}`();"
+          #query_auto_audience_segmentation_training_preparation: "
+          #  CALL `{auto_audience_segmentation_training_preparation_procedure_name}`();"
           # The `timeout` parameter defines the timeout of the pipeline in seconds.
           # The default value is 3600 seconds (1 hour).
-          timeout: 3600.0
+          #timeout: 3600.0
         # The `pipeline_parameters_substitutions` defines the substitutions that are going to be applied to the pipeline parameters before compilation.
         # Check the parameter values above to see if they are used.
         # They typically follow this format {parameter_subsititution_key}.
         # To apply a substitution, make sure you define the pair: {parameter_subsititution_key}: {parameter_subsititution_value}.
-        pipeline_parameters_substitutions:
-          date_timezone: "UTC" # used when input_date is None and need to get current date.
-          auto_audience_segmentation_inference_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_inference_preparation"
-          auto_audience_segmentation_training_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_training_preparation"
+        #pipeline_parameters_substitutions:
+        #  date_timezone: "UTC" # used when input_date is None and need to get current date.
+        #  auto_audience_segmentation_inference_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_inference_preparation"
+        #  auto_audience_segmentation_training_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_training_preparation"
 
     # This pipeline contains the configuration parameters for the modeling stage of the Meridian model.
     # To deploy this pipeline to your Google Cloud project:

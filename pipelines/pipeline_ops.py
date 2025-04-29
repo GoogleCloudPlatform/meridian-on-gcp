@@ -17,7 +17,7 @@ from os import name
 from tracemalloc import start
 
 import pip
-from sympy import preview
+#from sympy import preview
 from kfp import compiler
 from google.cloud.aiplatform.pipeline_jobs import PipelineJob, _set_enable_caching_value
 from google.cloud.aiplatform import TabularDataset, Artifact
@@ -77,7 +77,7 @@ def get_bucket_name_and_path(uri):
     """
     if not uri.startswith("gs://"):
         raise ValueError("URI must start with gs://")
-    
+
     no_prefix_uri = uri[len("gs://"):]
     splits = no_prefix_uri.split("/")
 
@@ -160,7 +160,7 @@ def read_custom_transformation_file(custom_transformation_file: str):
         FileNotFoundError: If the custom transformation file does not exist.
         JSONDecodeError: If the custom transformation file is not valid JSON.
     """
-    
+
     transformations = None
     try:
         with open(custom_transformation_file, "r") as f:
@@ -169,7 +169,7 @@ def read_custom_transformation_file(custom_transformation_file: str):
         raise FileNotFoundError(f"Custom transformation file not found: {custom_transformation_file}")
     except json.JSONDecodeError:
         raise json.JSONDecodeError(f"Invalid JSON in custom transformation file: {custom_transformation_file}")
-    
+
     return transformations
 
 
@@ -195,7 +195,7 @@ def write_custom_transformations(uri: str, custom_transformation_file: str):
 
 
 def compile_pipeline(
-        pipeline_func: Callable, 
+        pipeline_func: Callable,
         template_path: str,
         pipeline_name: str,
         pipeline_parameters: Optional[Dict[str, Any]] = None,
@@ -228,9 +228,9 @@ def compile_pipeline(
             pipeline_parameters, pipeline_parameters_substitutions)
     logging.info("Pipeline parameters: {}".format(pipeline_parameters))
 
-    #pipeline_parameters.pop('columns_to_skip', None) 
+    #pipeline_parameters.pop('columns_to_skip', None)
 
-    # The function uses the compiler.Compiler() class to compile the pipeline defined by the pipeline_func function. 
+    # The function uses the compiler.Compiler() class to compile the pipeline defined by the pipeline_func function.
     # The compiled pipeline is saved to the template_path file.
     compiler.Compiler().compile(
         pipeline_func=pipeline_func,
@@ -456,17 +456,17 @@ def compile_automl_tabular_pipeline(
         pipeline_parameters = substitute_pipeline_params(
             pipeline_parameters, pipeline_parameters_substitutions)
 
-    # This section handles the feature transformations for the pipeline. It checks if there is a 
-    # custom_transformations file specified. If so, it reads the transformations from that file. 
+    # This section handles the feature transformations for the pipeline. It checks if there is a
+    # custom_transformations file specified. If so, it reads the transformations from that file.
     # Otherwise, it extracts the schema from the BigQuery table and generates automatic transformations based on the schema.
     pipeline_parameters['transformations'] = pipeline_parameters['transformations'].format(
         timestamp=datetime.now().strftime("%Y%m%d%H%M%S"))
-    
+
     schema = {}
 
     if 'custom_transformations' in pipeline_parameters.keys():
         logging.info("Reading from custom features transformations file: {}".format(pipeline_parameters['custom_transformations']))
-        schema = write_custom_transformations(pipeline_parameters['transformations'], 
+        schema = write_custom_transformations(pipeline_parameters['transformations'],
                                       pipeline_parameters['custom_transformations'])
     else:
         schema = _extract_schema_from_bigquery(
@@ -489,12 +489,12 @@ def compile_automl_tabular_pipeline(
 
         logging.info("Writing automatically generated features transformations file: {}".format(pipeline_parameters['transformations']))
         write_auto_transformations(pipeline_parameters['transformations'], schema)
-    
+
     logging.info(f'features:{schema}')
 
-    # This section compiles the AutoML Tabular Workflows pipeline. It uses the automl_tabular_utils module to 
-    # generate the pipeline components and parameters. It then loads a pre-compiled pipeline template file 
-    # (automl_tabular_pl_v4.yaml) and hydrates it with the generated parameters. Finally, it writes the 
+    # This section compiles the AutoML Tabular Workflows pipeline. It uses the automl_tabular_utils module to
+    # generate the pipeline components and parameters. It then loads a pre-compiled pipeline template file
+    # (automl_tabular_pl_v4.yaml) and hydrates it with the generated parameters. Finally, it writes the
     # compiled pipeline template and parameters to the specified files.
     if pipeline_parameters['predefined_split_key']:
         pipeline_parameters['training_fraction'] = None
@@ -502,8 +502,8 @@ def compile_automl_tabular_pipeline(
         pipeline_parameters['test_fraction'] = None
 
     pipeline_parameters.pop('data_source_bigquery_table_schema', None)
-    pipeline_parameters.pop('custom_transformations', None) 
-    
+    pipeline_parameters.pop('custom_transformations', None)
+
     (
         tp,
         parameter_values,
@@ -632,7 +632,7 @@ def _get_project_number(project_id) -> str:
 
     Returns:
         A string containing the project number
-    
+
     Raises:
         Exception: If an error occurs while retrieving the resource manager project object.
     """
@@ -697,7 +697,7 @@ def schedule_pipeline(
     if pipeline_parameters_substitutions != None:
         pipeline_parameters = substitute_pipeline_params(
             pipeline_parameters, pipeline_parameters_substitutions)
-    
+
     # Deletes scheduled queries with matching description
     delete_schedules(project_id, region, pipeline_name)
 
@@ -789,7 +789,7 @@ def get_schedules(
 
     # Make the request
     resp = requests.get(url=url, headers=headers)
-    data = resp.json()  # Check the JSON Response Content 
+    data = resp.json()  # Check the JSON Response Content
     if "schedules" in data:
         return data['schedules']
     else:
@@ -810,7 +810,7 @@ def pause_schedule(
 
     Returns:
         A list of the names of the paused schedules. If no schedules are found, returns None.
-    
+
     Raises:
         Exception: If an error occurs while pausing the schedules.
     """
@@ -857,7 +857,7 @@ def delete_schedules(
 
     Returns:
         A list of the names of the deleted schedules. If no schedules are found, returns None.
-    
+
     Raises:
         Exception: If an error occurs while deleting the schedules.
     """
@@ -903,11 +903,11 @@ def run_pipeline(
     encryption_spec_key_name: Optional[str] = None,
     wait: bool = False,
 ) -> PipelineJob:
-    
+
     """
     Runs a Vertex AI Pipeline.
-    This function provides a convenient way to run a Vertex AI Pipeline. It takes care of creating the PipelineJob object, 
-    submitting the pipeline, and waiting for completion (if desired). It also allows for substituting placeholders in the 
+    This function provides a convenient way to run a Vertex AI Pipeline. It takes care of creating the PipelineJob object,
+    submitting the pipeline, and waiting for completion (if desired). It also allows for substituting placeholders in the
     pipeline parameters, making the pipeline more flexible and reusable.
 
     Args:
@@ -931,13 +931,13 @@ def run_pipeline(
         A PipelineJob object.
     """
 
-    # Substitute placeholders in the pipeline_parameters dictionary with values from the pipeline_parameters_substitutions dictionary. 
-    # This is useful for making the pipeline more flexible and reusable, as the same pipeline can be used with different parameter 
+    # Substitute placeholders in the pipeline_parameters dictionary with values from the pipeline_parameters_substitutions dictionary.
+    # This is useful for making the pipeline more flexible and reusable, as the same pipeline can be used with different parameter
     # values by simply providing a different pipeline_parameters_substitutions dictionary.
     if pipeline_parameters_substitutions != None:
         pipeline_parameters = substitute_pipeline_params(
             pipeline_parameters, pipeline_parameters_substitutions)
-    
+
     logging.info(f"Pipeline parameters : {pipeline_parameters}")
 
     # Creates a PipelineJob object with the provided arguments.
@@ -955,7 +955,7 @@ def run_pipeline(
         failure_policy=failure_policy,
         labels=labels)
 
-    # Submits the pipeline to Vertex AI 
+    # Submits the pipeline to Vertex AI
     pl.submit(service_account=service_account, experiment=experiment_name)
 
     logging.info(f"Pipeline submitted")
@@ -966,4 +966,4 @@ def run_pipeline(
         if (pl.has_failed):
             raise RuntimeError("Pipeline execution failed")
     return pl
-    
+

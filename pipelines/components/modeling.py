@@ -23,11 +23,15 @@ config_file_path = os.path.join(os.path.dirname(
     __file__), '../../config/config.yaml')
 
 base_image = None
+repo_params = None
+vertex_components_params = None
+vertex_pipelines_params = None
 if os.path.exists(config_file_path):
     with open(config_file_path, encoding='utf-8') as fh:
         configs = yaml.full_load(fh)
 
     vertex_components_params = configs['vertex_ai']['components']
+    vertex_pipelines_params = configs['vertex_ai']['pipelines']
     repo_params = configs['artifact_registry']['pipelines_docker_repo']
 
     # defines the base_image variable, which specifies the Docker image to be used for the component. This image is retrieved from the config.yaml file, which contains configuration parameters for the project.
@@ -47,9 +51,9 @@ from kfp import compiler, dsl
 import kfp
 from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component
 
-PROJECT_ID = "meridian-dev-455515"
-LOCATION = "us-central1"
-BUCKET_NAME ="meridian-dev-455515-pipelines"
+PROJECT_ID = repo_params['project_id']
+LOCATION = repo_params['region']
+BUCKET_NAME = vertex_pipelines_params['bucket_name']
 BUCKET_URI = f"gs://{BUCKET_NAME}"
 
 # Get the OAuth2 token.
@@ -72,8 +76,8 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION, staging_bucket=BUCKET_URI
 TRAIN_GPU, TRAIN_NGPU = (aiplatform.gapic.AcceleratorType.NVIDIA_TESLA_T4, 1)
 DEPLOY_GPU, DEPLOY_NGPU = (None, None)
 
-GPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-gpu-base-image:dev"
-CPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-cpu-base-image:dev"
+GPU_TRAIN_IMAGE = gpu_base_image
+CPU_TRAIN_IMAGE = base_image
 
 MACHINE_TYPE = "n1-standard"
 
@@ -89,8 +93,14 @@ def train_meridian_model(
     project_id: str,
     bq_dataset: str,
     bq_table_name: str,
-    roi_mu: float, roi_sigma: float, n_chains: int,
-    n_adapt: int, n_burnin: int, n_keep: int, seed: int,
+    roi_mu: float,
+    roi_sigma: float,
+    n_chains: int,
+    n_adapt: int,
+    n_burnin: int,
+    n_keep: int,
+    seed: int,
+    meridian_model_filename: str,
     output_model: Output[Model],
 ):
     # --- Imports inside component ---
@@ -111,7 +121,7 @@ def train_meridian_model(
     # --- Reconfigure logging inside component if needed, or rely on root config ---
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Optional reconfig
 
-    MERIDIAN_MODEL_FILENAME = "model_save.pkl" # Model Name
+    MERIDIAN_MODEL_FILENAME = meridian_model_filename # Model Name
 
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
@@ -236,6 +246,7 @@ def generate_summary_report(
     report_filename: str,
     start_date: str,
     end_date: str,
+    meridian_model_filename: str,
     summary_report_artifact: Output[Artifact],
 ):
     import os
@@ -249,7 +260,7 @@ def generate_summary_report(
     import dill # Ensure dill is imported, needed by load_mmm
 
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Optional reconfig
-    MERIDIAN_MODEL_FILENAME = "model_save.pkl"
+    MERIDIAN_MODEL_FILENAME = meridian_model_filename
     def upload_local_file_to_gcs(local_path: str, gcs_uri: str):
         storage_client = storage.Client()
         parsed_uri = urlparse(gcs_uri)
@@ -314,6 +325,7 @@ def generate_and_save_summary_bq(
     project_id: str,
     bq_dataset: str,
     bq_table_name: str, # Target table for this summary
+    meridian_model_filename: str,
     bq_output_table: Output[Artifact], # Output artifact to track the BQ table
 ):
     import os
@@ -326,7 +338,7 @@ def generate_and_save_summary_bq(
     import dill # Ensure dill is imported if needed by load_mmm
 
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Optional reconfig
-    MERIDIAN_MODEL_FILENAME = "model_save.pkl"
+    MERIDIAN_MODEL_FILENAME = meridian_model_filename
 
     model_dir_path = model_artifact.path
     load_file_path = os.path.join(model_dir_path, MERIDIAN_MODEL_FILENAME)

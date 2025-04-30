@@ -27,9 +27,9 @@ import yaml
 
 from components.modeling import (
     train_meridian_model,
-)
-from components.post_modeling import (
-    run_budget_optimization
+    generate_summary_report,
+    generate_and_save_summary_bq,
+
 )
 
 config_file_path = os.path.join(os.path.dirname(
@@ -71,11 +71,12 @@ OUTPUT_GCS_DIR = f"{PIPELINE_ROOT}/outputs"
     description="Runs Meridian MMM (GPU) reading from BigQuery, saves summary table to BQ",
     pipeline_root=PIPELINE_ROOT,
 )
-def post_modeling_pipeline(
+def modeling_pipeline(
     project_id: str,
     location: str,
     mds_dataset: str,
     table_name: str, # Input data table
+    summary_table_name: str, # Output summary table
     roi_mu: float,
     roi_sigma: float,
     n_chains: int,
@@ -83,8 +84,11 @@ def post_modeling_pipeline(
     n_burnin: int,
     n_keep: int,
     random_seed: int,
-    meridian_model_filename: str = "model_save.pkl",
+    report_start_date: str,
+    report_end_date: str,
+    summary_report_filename: str = "summary_output.html", # HTML report
     optimization_report_filename: str = "optimization_output.html",
+    meridian_model_filename: str = "model_save.pkl",
 ):
     # Step 1: Train Model
     train_task = train_meridian_model(
@@ -103,11 +107,33 @@ def post_modeling_pipeline(
     train_task.set_cpu_limit(CPU_LIMIT).set_memory_limit(MEMORY_LIMIT)
     train_task.set_accelerator_limit(GPU_LIMIT).set_accelerator_type(ACCELERATOR_TYPE)
 
-    # Step 4: Run Budget Optimization (Runs in parallel with reports if desired, or after)
-    optimization_task = run_budget_optimization(
+    # Step 2: Generate Summary Table and Save to BigQuery
+    save_summary_bq_task = generate_and_save_summary_bq(
+        model_artifact=train_task.outputs["output_model"],
+        project_id=project_id,
+        bq_dataset=mds_dataset,
+        bq_table_name=summary_table_name, # Output table name for summary
+        meridian_model_filename=meridian_model_filename,
+    )
+    save_summary_bq_task.set_cpu_limit(CPU_LIMIT).set_memory_limit(MEMORY_LIMIT) # Adjust resources as needed
+
+    # Step 3: Generate HTML Summary Report (Runs in parallel with BQ save if desired, or after)
+    summary_html_task = generate_summary_report(
         model_artifact=train_task.outputs["output_model"],
         output_gcs_dir=OUTPUT_GCS_DIR,
-        report_filename=optimization_report_filename,
+        report_filename=summary_report_filename,
+        start_date=report_start_date,
+        end_date=report_end_date,
+        meridian_model_filename=meridian_model_filename,
     )
+    # Can run after BQ save by adding: .after(save_summary_bq_task)
+    summary_html_task.set_cpu_limit(CPU_LIMIT).set_memory_limit(MEMORY_LIMIT) # Keep original resources
+
+    # Step 4: Run Budget Optimization (Runs in parallel with reports if desired, or after)
+    #optimization_task = run_budget_optimization(
+    #    model_artifact=train_task.outputs["output_model"],
+    #    output_gcs_dir=OUTPUT_GCS_DIR,
+    #    report_filename=optimization_report_filename,
+    #)
     # Can run after reports by adding: .after(summary_html_task, save_summary_bq_task)
-    optimization_task.set_cpu_limit(CPU_LIMIT).set_memory_limit(MEMORY_LIMIT) # Keep original resources
+    #optimization_task.set_cpu_limit(CPU_LIMIT).set_memory_limit(MEMORY_LIMIT) # Keep original resources

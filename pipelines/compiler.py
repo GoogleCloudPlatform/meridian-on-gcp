@@ -26,8 +26,8 @@ python -m pipelines.compiler -c ../config/conf.yaml -p train_pipeline -o my_comp
 # This allows the script to dynamically import the correct pipeline function based on the provided pipeline name.
 pipelines_list = {
     'vertex_ai.pipelines.meridian-pre-modeling.execution': "meridian_premodeling_pipeline.data_analysis_pipeline",
-    #'vertex_ai.pipelines.meridian-modeling.execution': "meridian_modeling_pipeline.aggregated_value_based_bidding_feature_engineering_pipeline",
-    #'vertex_ai.pipelines.meridian-post-modeling.execution': "meridian_postmodeling_pipeline.audience_segmentation_feature_engineering_pipeline",
+    'vertex_ai.pipelines.meridian-modeling.execution': "meridian_modeling_pipeline.modeling_pipeline",
+    'vertex_ai.pipelines.meridian-post-modeling.execution': "meridian_postmodeling_pipeline.post_modeling_pipeline",
 } # key should match pipeline names as in the `config.yaml.tftpl` files for automatic compilation
 
 if __name__ == "__main__":

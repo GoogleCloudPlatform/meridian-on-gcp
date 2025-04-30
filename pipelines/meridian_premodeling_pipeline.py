@@ -15,33 +15,54 @@
 from typing import Optional
 import kfp as kfp
 import kfp.dsl as dsl
+import logging # Import logging
+from typing import Optional
 
 from components.data_analysis import (
     meridian_data_analysis_component
 )
 
-CPU_LIMIT = "8"  # vCPUs
-MEMORY_LIMIT = "8G"
+import os
+import yaml
+
+config_file_path = os.path.join(os.path.dirname(
+    __file__), '../config/config.yaml')
+
+vertex_components_params = None
+if os.path.exists(config_file_path):
+    with open(config_file_path, encoding='utf-8') as fh:
+        configs = yaml.full_load(fh)
+
+    vertex_components_params = configs['vertex_ai']['components']
+
+if vertex_components_params:
+    CPU_LIMIT = vertex_components_params['cpu_limit']
+    MEMORY_LIMIT = vertex_components_params['memory_limit']
+else:
+    CPU_LIMIT = "8"
+    MEMORY_LIMIT = "8G"
+
 
 @dsl.pipeline(
     name="meridian-premodeling-pipeline",
-    description="A simple pipeline that imports meridian libs",
+    description="A simple pipeline that performs data analysis",
 )
 def data_analysis_pipeline(
     project_id: str,
-    cpu_limit: str,
-    memory_limit: str,
+    location: str,
+    mds_dataset: str,
+    table_name: str, # Input data table
 ):
 
     meridian_data_analysis = (
         meridian_data_analysis_component(
-            project_id=project_id
+            project_id=project_id,
+            bq_dataset=mds_dataset,
+            bq_table_name=table_name,
         )
         .set_display_name("meridian-data-analysis")
-        .set_cpu_limit(cpu_limit)
-        .set_memory_limit(memory_limit)
-        #.add_node_selector_constraint("NVIDIA_TESLA_T4")
-        #.set_gpu_limit(TRAIN_NGPU)
+        .set_cpu_limit(CPU_LIMIT)
+        .set_memory_limit(MEMORY_LIMIT)
     )
 
     #meridian_model_building = (

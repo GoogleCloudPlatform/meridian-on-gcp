@@ -23,11 +23,15 @@ config_file_path = os.path.join(os.path.dirname(
     __file__), '../../config/config.yaml')
 
 base_image = None
+repo_params = None
+vertex_components_params = None
+vertex_pipelines_params = None
 if os.path.exists(config_file_path):
     with open(config_file_path, encoding='utf-8') as fh:
         configs = yaml.full_load(fh)
 
     vertex_components_params = configs['vertex_ai']['components']
+    vertex_pipelines_params = configs['vertex_ai']['pipelines']
     repo_params = configs['artifact_registry']['pipelines_docker_repo']
 
     # defines the base_image variable, which specifies the Docker image to be used for the component. This image is retrieved from the config.yaml file, which contains configuration parameters for the project.
@@ -47,9 +51,9 @@ from kfp import compiler, dsl
 import kfp
 from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component
 
-PROJECT_ID = "meridian-dev-455515"
-LOCATION = "us-central1"
-BUCKET_NAME ="meridian-dev-455515-pipelines"
+PROJECT_ID = repo_params['project_id']
+LOCATION = repo_params['region']
+BUCKET_NAME = vertex_pipelines_params['bucket_name']
 BUCKET_URI = f"gs://{BUCKET_NAME}"
 
 # Get the OAuth2 token.
@@ -72,8 +76,8 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION, staging_bucket=BUCKET_URI
 TRAIN_GPU, TRAIN_NGPU = (aiplatform.gapic.AcceleratorType.NVIDIA_TESLA_T4, 1)
 DEPLOY_GPU, DEPLOY_NGPU = (None, None)
 
-GPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-gpu-base-image:dev"
-CPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-cpu-base-image:dev"
+GPU_TRAIN_IMAGE = gpu_base_image
+CPU_TRAIN_IMAGE = base_image
 
 MACHINE_TYPE = "n1-standard"
 

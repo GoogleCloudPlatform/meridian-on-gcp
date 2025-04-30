@@ -118,6 +118,10 @@ vertex_ai:
     base_image_tag: "dev"
     gpu_base_image_name: "meridian-gpu-base-image"
     gpu_base_image_tag: "dev"
+    cpu_limit: "8"
+    memory_limit: "8G"
+    gpu_limit: 1
+    accelerator_type: "NVIDIA_TESLA_T4"
 
   # This pipelines block contains configuration parameters for the Vertex AI pipelines.
   # The current pipelines are:
@@ -182,34 +186,10 @@ vertex_ai:
         # This process takes into consideration a date interval defined by the parameters `date_start` and `date_end`.
         pipeline_parameters:
           project_id: "${project_id}"
-          #location: "${location}"
-          #dataset: "auto_audience_segmentation"
-          #feature_table: "page_path_cumulative_traffic"
-          #date_start: "2024-01-01"
-          #date_end: "2024-07-01"
-          #mds_project_id: "${mds_project_id}"
-          #mds_dataset: "${mds_dataset}"
-          #stored_procedure_name: "auto_audience_segmentation_dataset_preparation"
-          #full_dataset_table: "auto_audience_segmentation_full_dataset"
-          #training_table: "auto_audience_segmentation_training_15"
-          #inference_table: "auto_audience_segmentation_inference_15"
-          cpu_limit: "8"
-          memory_limit: "8G"
-          #query_auto_audience_segmentation_inference_preparation: "
-          #  CALL `{auto_audience_segmentation_inference_preparation_procedure_name}`();"
-          #query_auto_audience_segmentation_training_preparation: "
-          #  CALL `{auto_audience_segmentation_training_preparation_procedure_name}`();"
-          # The `timeout` parameter defines the timeout of the pipeline in seconds.
-          # The default value is 3600 seconds (1 hour).
-          #timeout: 3600.0
-        # The `pipeline_parameters_substitutions` defines the substitutions that are going to be applied to the pipeline parameters before compilation.
-        # Check the parameter values above to see if they are used.
-        # They typically follow this format {parameter_subsititution_key}.
-        # To apply a substitution, make sure you define the pair: {parameter_subsititution_key}: {parameter_subsititution_value}.
+          location: "${location}"
+          mds_dataset: "${mds_dataset}"
+          table_name: "national_media"
         pipeline_parameters_substitutions: null
-        #  date_timezone: "UTC" # used when input_date is None and need to get current date.
-        #  auto_audience_segmentation_inference_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_inference_preparation"
-        #  auto_audience_segmentation_training_preparation_procedure_name: "${project_id}.auto_audience_segmentation.invoke_auto_audience_segmentation_training_preparation"
 
     # This pipeline contains the configuration parameters for the modeling stage of the Meridian model.
     # To deploy this pipeline to your Google Cloud project:
@@ -260,21 +240,19 @@ vertex_ai:
           project_id: "${project_id}"
           location: "${location}"
           mds_dataset: "${mds_dataset}"
-          table_name: "meridian_table"
-          # The `timeout` parameter defines the timeout of the pipeline in seconds.
-          # The default value is 3600 seconds (1 hour).
-          timeout: 3600.0
-        # The `pipeline_parameters_substitutions` defines the substitutions that are going to be applied to the pipeline parameters before compilation.
-        # Check the parameter values above to see if they are used.
-        # They typically follow this format {parameter_subsititution_key}.
-        # To apply a substitution, make sure you define the pair: {parameter_subsititution_key}: {parameter_subsititution_value}.
-        pipeline_parameters_substitutions: # Substitutions are applied to the parameters before compilation
-          user_segmentation_dimensions_procedure_name: "${project_id}.feature_store.invoke_user_segmentation_dimensions"
-          user_lookback_metrics_procedure_name: "${project_id}.feature_store.invoke_user_lookback_metrics"
-          user_scoped_segmentation_metrics_procedure_name: "${project_id}.feature_store.invoke_user_scoped_segmentation_metrics"
-          date_timezone: "UTC" # used when input_date is None and need to get current date.
-          audience_segmentation_inference_preparation_procedure_name: "${project_id}.audience_segmentation.invoke_audience_segmentation_inference_preparation"
-          audience_segmentation_training_preparation_procedure_name: "${project_id}.audience_segmentation.invoke_audience_segmentation_training_preparation"
+          table_name: "national_media"
+          summary_table_name: "meridian_media_summary_report"
+          meridian_model_filename: "model_save.pkl"
+          roi_mu: 0.2
+          roi_sigma: 0.9
+          n_chains: 7
+          n_adapt: 500
+          n_burnin: 500
+          n_keep: 1000
+          random_seed: 1
+          report_start_date: '2021-01-25'
+          report_end_date: '2024-01-15'
+        pipeline_parameters_substitutions: null
 
     # This pipeline contains the configuration parameters for the post modeling stage of the Meridian model.
     # To deploy this pipeline to your Google Cloud project:
@@ -311,31 +289,18 @@ vertex_ai:
         pipeline_parameters:
           project_id: "${project_id}"
           location: "${location}"
-          # The query_purchase_propensity_label defines the procedure that will be used to invoke the creation of the purchase propensity label feature table.
-          query_purchase_propensity_label: "
-            CALL `{purchase_propensity_label_procedure_name}`();"
-          # The query_user_dimensions defines the procedure that will be used to invoke the creation of the user dimensions feature table.
-          query_user_dimensions: "
-            CALL `{user_dimensions_procedure_name}`();"
-          # The query_user_rolling_window_metrics defines the procedure that will be used to invoke the creation of the user rolling window metrics feature table.
-          query_user_rolling_window_metrics: "
-            CALL `{user_rolling_window_metrics_procedure_name}`();"
-          # The query_purchase_propensity_inference_preparation define the procedure that will be used to invoke the creation of the purchase propensity inference preparation table.
-          query_purchase_propensity_inference_preparation: "
-            CALL `{purchase_propensity_inference_preparation_procedure_name}`();"
-          # The query_purchase_propensity_training_preparation define the procedure that will be used to invoke the creation of the purchase propensity training preparation table.
-          query_purchase_propensity_training_preparation: "
-            CALL `{purchase_propensity_training_preparation_procedure_name}`();"
-          timeout: 3600.0
-        pipeline_parameters_substitutions: # Substitutions are applied to the parameters before compilation
-          purchase_propensity_label_procedure_name: "${project_id}.feature_store.invoke_purchase_propensity_label"
-          user_dimensions_procedure_name: "${project_id}.feature_store.invoke_user_dimensions"
-          user_rolling_window_metrics_procedure_name: "${project_id}.feature_store.invoke_user_rolling_window_metrics"
-          user_scoped_metrics_procedure_name: "${project_id}.feature_store.invoke_user_scoped_metrics"
-          user_session_event_aggregated_metrics_procedure_name: "${project_id}.feature_store.invoke_user_session_event_aggregated_metrics"
-          date_timezone: "UTC" # used when input_date is None and need to get current date.
-          purchase_propensity_inference_preparation_procedure_name: "${project_id}.purchase_propensity.invoke_purchase_propensity_inference_preparation"
-          purchase_propensity_training_preparation_procedure_name: "${project_id}.purchase_propensity.invoke_purchase_propensity_training_preparation"
+          mds_dataset: "${mds_dataset}"
+          table_name: "national_media"
+          meridian_model_filename: "model_save.pkl"
+          optimization_report_filename: "optimization_output.html"
+          roi_mu: 0.2
+          roi_sigma: 0.9
+          n_chains: 7
+          n_adapt: 500
+          n_burnin: 500
+          n_keep: 1000
+          random_seed: 1
+        pipeline_parameters_substitutions: null
 
 # This block contains configuration parameters for the BigQuery Datasets, Tables, Queries and Stored Procedures.
 bigquery:

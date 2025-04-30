@@ -23,11 +23,15 @@ config_file_path = os.path.join(os.path.dirname(
     __file__), '../../config/config.yaml')
 
 base_image = None
+repo_params = None
+vertex_components_params = None
+vertex_pipelines_params = None
 if os.path.exists(config_file_path):
     with open(config_file_path, encoding='utf-8') as fh:
         configs = yaml.full_load(fh)
 
     vertex_components_params = configs['vertex_ai']['components']
+    vertex_pipelines_params = configs['vertex_ai']['pipelines']
     repo_params = configs['artifact_registry']['pipelines_docker_repo']
 
     # defines the base_image variable, which specifies the Docker image to be used for the component. This image is retrieved from the config.yaml file, which contains configuration parameters for the project.
@@ -47,9 +51,9 @@ from kfp import compiler, dsl
 import kfp
 from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component
 
-PROJECT_ID = "meridian-dev-455515"
-LOCATION = "us-central1"
-BUCKET_NAME ="meridian-dev-455515-pipelines"
+PROJECT_ID = repo_params['project_id']
+LOCATION = repo_params['region']
+BUCKET_NAME = vertex_pipelines_params['bucket_name']
 BUCKET_URI = f"gs://{BUCKET_NAME}"
 
 # Get the OAuth2 token.
@@ -72,8 +76,8 @@ aiplatform.init(project=PROJECT_ID, location=LOCATION, staging_bucket=BUCKET_URI
 TRAIN_GPU, TRAIN_NGPU = (aiplatform.gapic.AcceleratorType.NVIDIA_TESLA_T4, 1)
 DEPLOY_GPU, DEPLOY_NGPU = (None, None)
 
-GPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-gpu-base-image:dev"
-CPU_TRAIN_IMAGE = "us-central1-docker.pkg.dev/meridian-dev-455515/pipelines-docker-repo/meridian-cpu-base-image:dev"
+GPU_TRAIN_IMAGE = gpu_base_image
+CPU_TRAIN_IMAGE = base_image
 
 MACHINE_TYPE = "n1-standard"
 
@@ -87,87 +91,104 @@ PIPELINE_ROOT = "{}/pipeline_root/machine_settings".format(BUCKET_URI)
 )
 def meridian_data_analysis_component(
     project_id: str,
+    bq_dataset: str,
+    bq_table_name: str,
 ) -> str:
 
     import numpy as np
     import pandas as pd
     import tensorflow as tf
     import tensorflow_probability as tfp
-    import arviz as az
-
-    import IPython
-
+    import os
+    import logging
+    import time
+    import datetime
+    from google.cloud import bigquery
     from meridian import constants
     from meridian.data import load
-    from meridian.data import test_utils
-    from meridian.model import model
-    from meridian.model import spec
-    from meridian.model import prior_distribution
-    from meridian.analysis import optimizer
-    from meridian.analysis import analyzer
-    from meridian.analysis import visualizer
-    from meridian.analysis import summarizer
-    from meridian.analysis import formatter
+    from meridian.model import model, spec, prior_distribution
+    import dill
 
-    from meridian.model.model import Meridian
-    from google.cloud import storage
-    import joblib
-    import os
+    # --- Reconfigure logging inside component if needed, or rely on root config ---
+    # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Optional reconfig
 
-    # check if GPU is available
-    from psutil import virtual_memory
-    ram_gb = virtual_memory().total / 1e9
-    print('Your runtime has {:.1f} gigabytes of available RAM\n'.format(ram_gb))
-    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-    print("Num CPUs Available: ", len(tf.config.experimental.list_physical_devices('CPU')))
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        logging.info(f"GPUs available: {gpus}")
+        try:
+            for gpu in gpus: tf.config.experimental.set_memory_growth(gpu, True)
+            logging.info("Enabled memory growth for GPUs.")
+        except RuntimeError as e: logging.error(f"Error setting memory growth: {e}")
+    else: logging.warning("No GPU detected by TensorFlow. Running on CPU.")
 
+    # --- Define Mappings ---
     coord_to_columns = load.CoordToColumns(
-        time='time',
-        geo='geo',
-        controls=['GQV', 'Competitor_Sales'],
-        population='population',
-        kpi='conversions',
-        revenue_per_kpi='revenue_per_conversion',
-        media=[
-            'Channel0_impression',
-            'Channel1_impression',
-            'Channel2_impression',
-            'Channel3_impression',
-            'Channel4_impression',
-        ],
-        media_spend=[
-            'Channel0_spend',
-            'Channel1_spend',
-            'Channel2_spend',
-            'Channel3_spend',
-            'Channel4_spend',
-        ],
-        organic_media=['Organic_channel0_impression'],
-        non_media_treatments=['Promo'],
+        time='time', geo='geo', controls=['GQV', 'Competitor_Sales'], population='population',
+        kpi='conversions', revenue_per_kpi='revenue_per_conversion',
+        media=[f'Channel{i}_impression' for i in range(5)], ## HERE FOR THE SAMPLE DATASET, change with your own channels names
+        media_spend=[f'Channel{i}_spend' for i in range(5)], ## HERE FOR THE SAMPLE DATASET, change with your own channels names
+        organic_media=['Organic_channel0_impression'], non_media_treatments=['Promo'],
     )
+    correct_media_to_channel = {f'Channel{i}_impression': f'Channel_{i}' for i in range(5)} ## HERE FOR THE SAMPLE DATASET, change with your own channels names
+    correct_media_spend_to_channel = {f'Channel{i}_spend': f'Channel_{i}' for i in range(5)} ## HERE FOR THE SAMPLE DATASET, change with your own channels names
+    # ----------------------------------------------------------------------
 
-    correct_media_to_channel = {
-        'Channel0_impression': 'Channel_0',
-        'Channel1_impression': 'Channel_1',
-        'Channel2_impression': 'Channel_2',
-        'Channel3_impression': 'Channel_3',
-        'Channel4_impression': 'Channel_4',
-    }
-    correct_media_spend_to_channel = {
-        'Channel0_spend': 'Channel_0',
-        'Channel1_spend': 'Channel_1',
-        'Channel2_spend': 'Channel_2',
-        'Channel3_spend': 'Channel_3',
-        'Channel4_spend': 'Channel_4',
-    }
+    # --- BigQuery Data Loading Start ---
+    bq_table_full_id = f"{project_id}.{bq_dataset}.{bq_table_name}"
+    logging.info(f"Attempting to load data from BigQuery table: {bq_table_full_id}")
 
-    loader = load.CsvDataLoader(
-        csv_path="https://raw.githubusercontent.com/google/meridian/refs/heads/main/meridian/data/simulated_data/csv/geo_all_channels.csv",
-        kpi_type='non_revenue',
-        coord_to_columns=coord_to_columns,
-        media_to_channel=correct_media_to_channel,
-        media_spend_to_channel=correct_media_spend_to_channel,
-    )
-    data = loader.load()
+    try:
+        client = bigquery.Client(project=project_id)
+        logging.info("BigQuery client created successfully.")
+    except Exception as e:
+        logging.error(f"Failed to create BigQuery client: {e}")
+        raise e
+
+    sql_query = f"SELECT * FROM `{bq_table_full_id}`"
+    logging.info(f"Executing query: {sql_query}")
+
+    try:
+        df = client.query(sql_query).to_dataframe()
+        logging.info(f"Successfully loaded {len(df)} rows and {len(df.columns)} columns from BigQuery.")
+
+        # --- Convert time column, BQ_To_Dataframe converts the datetime so we need to convert it yyyy-mm-dd ---
+        time_col_name = coord_to_columns.time
+        if time_col_name in df.columns:
+            logging.info(f"Converting time column '{time_col_name}' to string format 'YYYY-MM-DD'")
+            if pd.api.types.is_datetime64_any_dtype(df[time_col_name]) or isinstance(df[time_col_name].iloc[0], pd.Timestamp) or isinstance(df[time_col_name].iloc[0], datetime.date):
+                 df[time_col_name] = pd.to_datetime(df[time_col_name]).dt.strftime('%Y-%m-%d')
+                 logging.info(f"Conversion of '{time_col_name}' complete.")
+            elif pd.api.types.is_string_dtype(df[time_col_name]):
+                 logging.info(f"Column '{time_col_name}' is already string type. Checking format (first row): {df[time_col_name].iloc[0]}")
+            else:
+                 logging.warning(f"Column '{time_col_name}' is not a recognized datetime or string type ({df[time_col_name].dtype}). Meridian might still fail.")
+        else:
+            logging.error(f"Specified time column '{time_col_name}' not found in DataFrame!")
+            raise ValueError(f"Time column '{time_col_name}' defined in coord_to_columns not found in BigQuery results.")
+        # --- End Time Conversion ---
+
+        logging.info("First 5 rows of loaded data (post-conversion):")
+        logging.info(df.head().to_string()) # Use to_string for logging DataFrames
+
+    except Exception as e:
+        logging.error(f"Error loading data from BigQuery or processing DataFrame: {e}")
+        raise e
+
+    # --- Use DataFrameDataLoader ---
+    logging.info("Initializing Meridian DataFrameDataLoader...")
+    try:
+        loader = load.DataFrameDataLoader(
+            df=df, # Pass the DataFrame loaded from BQ
+            kpi_type='non_revenue',
+            coord_to_columns=coord_to_columns,
+            media_to_channel=correct_media_to_channel,
+            media_spend_to_channel=correct_media_spend_to_channel,
+        )
+        data = loader.load()
+        logging.info("Data successfully loaded into Meridian InputData format.")
+    except Exception as e:
+        logging.error(f"Error during Meridian data loading process (DataFrameDataLoader): {e}")
+        raise e
+    # --- BigQuery Data Loading End ---
 
     return

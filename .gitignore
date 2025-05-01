@@ -95,6 +95,9 @@ target/
 profile_default/
 ipython_config.py
 
+#configurations
+config/config.yaml
+
 # pyenv
 .python-version
 
@@ -161,6 +164,7 @@ pytest.ini
 
 # Local .terraform directories
 **/.terraform
+infra/.terraform.lock.hcl
 
 # Terraform files
 *.tfstate
@@ -205,7 +209,7 @@ env.sh
 .idea
 
 # Kubeflow Pipelines YAML files
-python/*.yaml
+pipelines/*.yaml
 
 # Google credential files
 .credentials/

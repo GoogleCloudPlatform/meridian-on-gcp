@@ -279,10 +279,99 @@ locals {
   pipelines_content_hash = sha512(join("", [for f in local.pipelines_fileset : fileexists(f) ? filesha512(f) : sha512("file-not-found")]))
 }
 
+# Wait for the cloud build service account to be created
+resource "null_resource" "wait_for_cloud_build_sa_creation" {
+  provisioner "local-exec" {
+    command = <<-EOT
+    COUNTER=0
+    MAX_TRIES=100
+    while ! gcloud iam service-accounts list --project=${local.pipeline_vars.project_id} --filter="EMAIL:${data.google_project.meridian_project.number}@cloudbuild.gserviceaccount.com AND DISABLED:False" --format="table(EMAIL, DISABLED)" && [ $COUNTER -lt $MAX_TRIES ]
+    do
+      sleep 3
+      printf "."
+      COUNTER=$((COUNTER + 1))
+    done
+    if [ $COUNTER -eq $MAX_TRIES ]; then
+      echo "cloud build service account was not created, terraform can not continue!"
+      exit 1
+    fi
+    sleep 10
+    COUNTER=0
+    MAX_TRIES=100
+    while ! gcloud iam service-accounts list --project=${local.pipeline_vars.project_id} --filter="EMAIL:${data.google_project.meridian_project.number}-compute@developer.gserviceaccount.com AND DISABLED:False" --format="table(EMAIL, DISABLED)" && [ $COUNTER -lt $MAX_TRIES ]
+    do
+      sleep 3
+      printf "."
+      COUNTER=$((COUNTER + 1))
+    done
+    if [ $COUNTER -eq $MAX_TRIES ]; then
+      echo "cloud build service account was not created, terraform can not continue!"
+      exit 1
+    fi
+    sleep 20
+    EOT
+  }
+
+  depends_on = [
+    data.google_project.meridian_project,
+  ]
+}
+
 # This resource binds the service account to the required roles
 resource "google_project_iam_member" "cloud_build_job_service_account" {
   depends_on = [
     data.google_project.meridian_project,
+    null_resource.wait_for_cloud_build_sa_creation,
+  ]
+
+  project = var.main_project_id
+  member  = "serviceAccount:${data.google_project.meridian_project.number}@cloudbuild.gserviceaccount.com"
+
+  for_each = toset([
+    "roles/cloudbuild.serviceAgent",
+    "roles/cloudbuild.builds.builder",
+    "roles/cloudbuild.integrations.owner",
+    "roles/logging.logWriter",
+    "roles/logging.admin",
+    "roles/storage.admin",
+    "roles/iam.serviceAccountTokenCreator",
+    "roles/iam.serviceAccountUser",
+    "roles/iam.serviceAccountAdmin",
+    "roles/cloudfunctions.developer",
+    "roles/run.admin",
+    "roles/appengine.appAdmin",
+    "roles/container.developer",
+    "roles/compute.instanceAdmin.v1",
+    "roles/firebase.admin",
+    "roles/cloudkms.cryptoKeyDecrypter",
+    "roles/secretmanager.secretAccessor",
+    "roles/cloudbuild.workerPoolUser",
+    "roles/cloudbuild.serviceAgent",
+    "roles/cloudbuild.builds.editor",
+    "roles/cloudbuild.builds.viewer",
+    "roles/cloudbuild.builds.approver",
+    "roles/cloudbuild.integrations.viewer",
+    "roles/cloudbuild.integrations.editor",
+    "roles/cloudbuild.connectionViewer",
+    "roles/cloudbuild.connectionAdmin",
+    "roles/cloudbuild.readTokenAccessor",
+    "roles/cloudbuild.tokenAccessor",
+    "roles/cloudbuild.workerPoolOwner",
+    "roles/cloudbuild.workerPoolEditor",
+    "roles/cloudbuild.workerPoolViewer",
+    "roles/artifactregistry.admin",
+    "roles/viewer",
+    "roles/owner",
+  ])
+  role = each.key
+}
+
+# This resource binds the service account to the required roles
+resource "google_project_iam_member" "cloud_build_job_service_account_2" {
+  depends_on = [
+    data.google_project.meridian_project,
+    null_resource.wait_for_cloud_build_sa_creation,
+    google_project_iam_member.cloud_build_job_service_account,
   ]
 
   project = var.main_project_id
@@ -327,7 +416,6 @@ resource "google_project_iam_member" "cloud_build_job_service_account" {
   role = each.key
 }
 
-
 # This resource is used to build and push the base component image that will be used to run each Vertex AI Pipeline step.
 resource "null_resource" "build_push_base_component_image" {
   triggers = {
@@ -368,7 +456,7 @@ resource "null_resource" "build_push_base_gpu_component_image" {
 
   depends_on = [
     data.google_project.meridian_project,
-    google_project_iam_member.cloud_build_job_service_account
+    google_project_iam_member.cloud_build_job_service_account,
   ]
 }
 

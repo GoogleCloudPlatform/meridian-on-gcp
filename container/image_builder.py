@@ -1,4 +1,4 @@
-# Copyright 2023 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import docker, os, yaml
+import os, yaml
 from argparse import ArgumentParser, ArgumentTypeError
 import logging
 
@@ -37,7 +37,7 @@ def run(
         FileNotFoundError: If the Dockerfile does not exist.
         ArgumentTypeError: If the Dockerfile path is not a string or the tag is not a string.
     """
-
+    import docker
     client = docker.from_env()
     image, logs = client.images.build(
         path = dockerfile_path,

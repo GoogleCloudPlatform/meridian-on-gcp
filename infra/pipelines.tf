@@ -370,7 +370,6 @@ resource "google_project_iam_member" "cloud_build_job_service_account" {
 resource "google_project_iam_member" "cloud_build_job_service_account_2" {
   depends_on = [
     data.google_project.meridian_project,
-    null_resource.wait_for_cloud_build_sa_creation,
     google_project_iam_member.cloud_build_job_service_account,
   ]
 
@@ -434,7 +433,7 @@ resource "null_resource" "build_push_base_component_image" {
 
   depends_on = [
     data.google_project.meridian_project,
-    google_project_iam_member.cloud_build_job_service_account
+    google_project_iam_member.cloud_build_job_service_account_2,
   ]
 }
 
@@ -456,7 +455,7 @@ resource "null_resource" "build_push_base_gpu_component_image" {
 
   depends_on = [
     data.google_project.meridian_project,
-    google_project_iam_member.cloud_build_job_service_account,
+    google_project_iam_member.cloud_build_job_service_account_2,
   ]
 }
 

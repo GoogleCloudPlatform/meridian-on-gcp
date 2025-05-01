@@ -107,6 +107,7 @@ def post_modeling_pipeline(
     optimization_task = run_budget_optimization(
         model_artifact=train_task.outputs["output_model"],
         output_gcs_dir=OUTPUT_GCS_DIR,
+        meridian_model_filename=meridian_model_filename,
         report_filename=optimization_report_filename,
     )
     # Can run after reports by adding: .after(summary_html_task, save_summary_bq_task)

@@ -40,7 +40,7 @@ dependencies = [
     "google-auth>=2.14.1",
     "google-auth-oauthlib>=1.2.1",
     "google-cloud>=0.34.0",
-    "google-cloud-aiplatform==1.77.0",
+    "google-cloud-aiplatform==1.91.0",
     "google-cloud-bigquery==2.30.0",
     "google-cloud-core>=2.4.1",
     "google-cloud-pipeline-components==2.6.0",

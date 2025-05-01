@@ -13,9 +13,9 @@
 # limitations under the License.
 
 
-tf_state_project_id = ""
-main_project_id = ""
-mds_project_id = ""
-mds_dataset = "meridian"
-data_location = "US"
-google_default_region = "us-central1"
+tf_state_project_id = "${MERIDIAN_MDS_PROJECT_ID}"
+main_project_id = "${MERIDIAN_MDS_PROJECT_ID}"
+mds_project_id = "${MERIDIAN_MDS_PROJECT_ID}"
+mds_dataset = "${MERIDIAN_MDS_DATASET}"
+data_location = "${MERIDIAN_MDS_DATA_LOCATION}"
+google_default_region = "${MERIDIAN_DEFAULT_REGION}"

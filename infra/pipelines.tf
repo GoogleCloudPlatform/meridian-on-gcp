@@ -144,14 +144,14 @@ resource "google_storage_bucket" "pipelines_bucket" {
   uniform_bucket_level_access = true
   # The force_destroy attribute specifies whether the bucket should be forcibly destroyed
   # even if it contains objects. In this case, it's set to false, which means that the bucket will not be destroyed if it contains objects.
-  force_destroy = false
+  force_destroy = true
 
   # The lifecycle block is used to configure the lifecycle of the table. In this case, the ignore_changes attribute is set to all, which means that Terraform will ignore
   # any changes to the table and will not attempt to update the table. The prevent_destroy attribute is set to true, which means that Terraform will prevent the table from being destroyed.
   lifecycle {
-    ignore_changes  = all
+    #ignore_changes  = all
     #prevent_destroy = true
-    create_before_destroy = true
+    #create_before_destroy = true
   }
 }
 
@@ -164,14 +164,14 @@ resource "google_storage_bucket" "custom_model_bucket" {
   uniform_bucket_level_access = true
   # The force_destroy attribute specifies whether the bucket should be forcibly destroyed
   # even if it contains objects. In this case, it's set to false, which means that the bucket will not be destroyed if it contains objects.
-  force_destroy = false
+  force_destroy = true
 
   # The lifecycle block is used to configure the lifecycle of the table. In this case, the ignore_changes attribute is set to all, which means that Terraform will ignore
   # any changes to the table and will not attempt to update the table. The prevent_destroy attribute is set to true, which means that Terraform will prevent the table from being destroyed.
   lifecycle {
-    ignore_changes  = all
+    #ignore_changes  = all
     #prevent_destroy = true
-    create_before_destroy = true
+    #create_before_destroy = true
   }
 }
 

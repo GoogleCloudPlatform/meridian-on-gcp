@@ -17,7 +17,7 @@ Solution accelerators entail code samples that solve common business patterns to
 
 ## Quick Installation ⏰
 
-Want to quickly install and use it? Run this [installation notebook 📔](https://colab.sandbox.google.com/github/GoogleCloudPlatform/meridian-on-gcp/blob/main/notebooks/meridian-quick-install.ipynb) on Google Colaboratory and deploy Meridian in between 15-20 minutes.
+Want to quickly install and use it? Run this [installation notebook 📔](https://colab.sandbox.google.com/github/GoogleCloudPlatform/meridian-on-gcp/blob/main/notebooks/meridian_quick_install.ipynb) on Google Colaboratory and deploy Meridian in between 15-20 minutes.
 
 ## Installation Guide
 

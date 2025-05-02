@@ -50,7 +50,7 @@ dependencies = [
     "immutabledict>=4.2.1",
     "jinja2>=3.0.1,<4.0.0",
     "joblib>=1.4.2",
-    "kfp==2.4.0",
+    "kfp==2.13.0",
     "kfp-server-api==2.0.5",
     "meridian>=0.4.0",
     "numpy>=2.0.2,<3",

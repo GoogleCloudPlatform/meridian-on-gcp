@@ -18,7 +18,7 @@ Solution accelerators entail code samples that solve common business patterns to
 ## Pre-requisites
 
 * Google Cloud Project
-* Media channels metrics in a BigQuery dataset within that project
+* Media channels metrics saved in a BigQuery table in a BigQuery dataset within that project, following this [schema definition](docs/DATA_SCHEMA.md).
 * An user with Google Cloud Project Owner role (or list of roles)
 * L4 or A100 gpu quota availability for the chosen region to run the pipelines
 * Marketing business owners to provide data and business insights

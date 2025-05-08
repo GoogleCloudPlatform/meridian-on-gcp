@@ -32,8 +32,7 @@ CREATE TABLE MeridianData (
 ```
 
 Explanation of Data Type Mapping:
-* INTEGER from the image is mapped to INT64 in GoogleSQL, which is a 64-bit signed integer.
-* STRING from the image is mapped to STRING in GoogleSQL.
-* DATE from the image is mapped to DATE in GoogleSQL.
-* FLOAT from the image is mapped to FLOAT64 in GoogleSQL, which is a double-precision floating-point number. GoogleSQL also has a FLOAT32 type, but FLOAT64 is generally preferred for broader compatibility and precision unless storage is a critical concern. The alias FLOAT in GoogleSQL refers to FLOAT64.
+* `STRING` is a `STRING` in GoogleSQL.
+* `DATE` is a `DATE` in GoogleSQL.
+* `FLOAT` is `FLOAT64` in GoogleSQL, which is a double-precision floating-point number.
 * All columns are defined as non nullable

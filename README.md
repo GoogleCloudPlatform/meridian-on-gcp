@@ -15,6 +15,14 @@ The tangible value to customers is to implement a ‘solution accelerator’ tha
 
 Solution accelerators entail code samples that solve common business patterns to support customer adoption at scale, with positioning and a business case, released on Github.
 
+## Pre-requisites
+
+* Google Cloud Project
+* Media channels metrics in a BigQuery dataset within that project
+* An user with Google Cloud Project Owner role (or list of roles)
+* L4 or A100 gpu quota availability for the chosen region to run the pipelines
+* Marketing business owners to provide data and business insights
+
 ## Quick Installation ⏰
 
 Want to quickly install and use it? Run this [installation notebook 📔](https://colab.sandbox.google.com/github/GoogleCloudPlatform/meridian-on-gcp/blob/main/notebooks/meridian_quick_install.ipynb) on Google Colaboratory and deploy Meridian in between 15-20 minutes.

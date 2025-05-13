@@ -32,6 +32,11 @@ variable "mds_dataset" {
   type        = string
 }
 
+variable "mds_table" {
+  description = "The BigQuery table containing the exported meridian data"
+  type        = string
+}
+
 variable "google_default_region" {
   default     = "us-central1"
   description = "The default Google Cloud region."

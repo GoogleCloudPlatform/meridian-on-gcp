@@ -15,6 +15,9 @@
 import logging
 from typing import Optional
 
+from helpers import convert_time_column_to_string, detect_and_log_time_outliers, check_and_log_zero_negative_values
+
+
 from kfp.dsl import component, Output, Model, Dataset
 import os
 import yaml
@@ -93,6 +96,7 @@ def meridian_data_analysis_component(
     project_id: str,
     bq_dataset: str,
     bq_table_name: str,
+    reload_data: bool = False,
 ) -> str:
 
     import numpy as np
@@ -103,6 +107,7 @@ def meridian_data_analysis_component(
     import logging
     import time
     import datetime
+    from datetime import date
     from google.cloud import bigquery
     from meridian import constants
     from meridian.data import load
@@ -123,11 +128,16 @@ def meridian_data_analysis_component(
 
     # --- Define Mappings ---
     coord_to_columns = load.CoordToColumns(
-        time='time', geo='geo', controls=['GQV', 'Competitor_Sales'], population='population',
-        kpi='conversions', revenue_per_kpi='revenue_per_conversion',
+        time='time', 
+        geo='geo', 
+        controls=['GQV', 'Competitor_Sales'], 
+        population='population',
+        kpi='conversions', 
+        revenue_per_kpi='revenue_per_conversion',
         media=[f'Channel{i}_impression' for i in range(5)], ## HERE FOR THE SAMPLE DATASET, change with your own channels names
         media_spend=[f'Channel{i}_spend' for i in range(5)], ## HERE FOR THE SAMPLE DATASET, change with your own channels names
-        organic_media=['Organic_channel0_impression'], non_media_treatments=['Promo'],
+        organic_media=['Organic_channel0_impression'], 
+        non_media_treatments=['Promo'],
     )
     correct_media_to_channel = {f'Channel{i}_impression': f'Channel_{i}' for i in range(5)} ## HERE FOR THE SAMPLE DATASET, change with your own channels names
     correct_media_spend_to_channel = {f'Channel{i}_spend': f'Channel_{i}' for i in range(5)} ## HERE FOR THE SAMPLE DATASET, change with your own channels names
@@ -151,21 +161,35 @@ def meridian_data_analysis_component(
         df = client.query(sql_query).to_dataframe()
         logging.info(f"Successfully loaded {len(df)} rows and {len(df.columns)} columns from BigQuery.")
 
-        # --- Convert time column, BQ_To_Dataframe converts the datetime so we need to convert it yyyy-mm-dd ---
         time_col_name = coord_to_columns.time
-        if time_col_name in df.columns:
-            logging.info(f"Converting time column '{time_col_name}' to string format 'YYYY-MM-DD'")
-            if pd.api.types.is_datetime64_any_dtype(df[time_col_name]) or isinstance(df[time_col_name].iloc[0], pd.Timestamp) or isinstance(df[time_col_name].iloc[0], datetime.date):
-                 df[time_col_name] = pd.to_datetime(df[time_col_name]).dt.strftime('%Y-%m-%d')
-                 logging.info(f"Conversion of '{time_col_name}' complete.")
-            elif pd.api.types.is_string_dtype(df[time_col_name]):
-                 logging.info(f"Column '{time_col_name}' is already string type. Checking format (first row): {df[time_col_name].iloc[0]}")
-            else:
-                 logging.warning(f"Column '{time_col_name}' is not a recognized datetime or string type ({df[time_col_name].dtype}). Meridian might still fail.")
-        else:
-            logging.error(f"Specified time column '{time_col_name}' not found in DataFrame!")
-            raise ValueError(f"Time column '{time_col_name}' defined in coord_to_columns not found in BigQuery results.")
-        # --- End Time Conversion ---
+        df = convert_time_column_to_string(df, time_col_name)
+
+        # Define expected date range and call the outlier detection function
+        min_expected_date_str = "2000-01-01"
+        max_expected_date_str = date.today().strftime('%Y-%m-%d')
+        detect_and_log_time_outliers(df, time_col_name, min_expected_date_str, max_expected_date_str)
+        
+        # --- Perform Non-Negative Value Checks ---
+        columns_to_check_non_negative = []
+        # KPI
+        columns_to_check_non_negative.append(df.columns.kpi)
+        # Revenue per KPI
+        columns_to_check_non_negative.append(df.columns.revenue_per_kpi)
+        # Media Spend
+        for col in coord_to_columns.media_spend:
+            if col in df.columns:
+                columns_to_check_non_negative.append(col)
+        # Organic Media
+        for col in coord_to_columns.organic_media:
+            if col in df.columns:
+                columns_to_check_non_negative.append(col)
+        
+        if columns_to_check_non_negative:
+            check_and_log_zero_negative_values(df, columns_to_check_non_negative)
+        # --- End Non-Negative Value Checks ---
+        
+        if reload_data:
+            load.DataFrameDataLoader.load = new_load
 
         logging.info("First 5 rows of loaded data (post-conversion):")
         logging.info(df.head().to_string()) # Use to_string for logging DataFrames

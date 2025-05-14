@@ -95,6 +95,7 @@ resource "local_file" "global_configuration" {
     cloud_region           = var.google_default_region
     mds_project_id         = var.mds_project_id
     mds_dataset            = "${var.mds_dataset}"
+    mds_table              = "${var.mds_table}"
     location  = var.data_location
     time_zone = var.time_zone
     pipeline_configuration = var.pipeline_configuration

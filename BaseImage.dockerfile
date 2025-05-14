@@ -1,23 +1,27 @@
 # Define the base image
 FROM us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-17.py310:latest
 
-# Set the working directory in the container
-# This is where your application code will live and where commands will be run from
-#WORKDIR /app
-
 # Copy application files into the container
 # Replace 'your_app_directory' with the actual directory containing your application code
 # For example, if your code is in a 'src' folder in the same directory as your Dockerfile:
-# COPY src/ .
+COPY ./ .
 # If you just have a requirements.txt and a Python script:
 # COPY requirements.txt .
 # COPY your_script.py .
 
 # Install any needed Python packages
+# Install the local meridian-on-gcp package from the pipeline directory
+RUN pip install --no-cache-dir .
 # If you have a requirements.txt file:
 # RUN pip install --no-cache-dir -r requirements.txt
 # If you need to install specific packages directly:
-RUN pip install --no-cache-dir --upgrade google-meridian[colab,and-cuda]
+RUN pip install --no-cache-dir --upgrade --force-reinstall google-meridian[colab,and-cuda]
+RUN pip install --no-cache-dir --ignore-installed 'shapely<2.0' 'pyarrow'
+
+# Set the working directory in the container
+# This is where your application code will live and where commands will be run from
+WORKDIR /modules
+ADD pipelines/components/helpers.py .
 
 # Set environment variables (if needed)
 # For example:

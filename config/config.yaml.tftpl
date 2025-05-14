@@ -188,7 +188,7 @@ vertex_ai:
           project_id: "${project_id}"
           location: "${location}"
           mds_dataset: "${mds_dataset}"
-          table_name: "national_media"
+          table_name: "${mds_table}"
         pipeline_parameters_substitutions: null
 
     # This pipeline contains the configuration parameters for the modeling stage of the Meridian model.
@@ -240,7 +240,7 @@ vertex_ai:
           project_id: "${project_id}"
           location: "${location}"
           mds_dataset: "${mds_dataset}"
-          table_name: "national_media"
+          table_name: "${mds_table}"
           summary_table_name: "meridian_media_summary_report"
           meridian_model_filename: "model_save.pkl"
           roi_mu: 0.2
@@ -290,7 +290,7 @@ vertex_ai:
           project_id: "${project_id}"
           location: "${location}"
           mds_dataset: "${mds_dataset}"
-          table_name: "national_media"
+          table_name: "${mds_table}"
           meridian_model_filename: "model_save.pkl"
           optimization_report_filename: "optimization_output.html"
           roi_mu: 0.2

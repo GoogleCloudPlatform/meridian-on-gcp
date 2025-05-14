@@ -32,7 +32,8 @@ locals {
   dataflow_vars                            = local.config_vars.dataflow
   config_bigquery                          = local.config_vars.bigquery
   config_file_path_relative_python_run_dir = "${local.source_root_dir}/config/${var.config_file_path}"
-  components_file_path_relative_python_run_dir = "${local.source_root_dir}/container/"
+  #components_file_path_relative_python_run_dir = "${local.source_root_dir}/container/"
+  components_file_path_relative_python_run_dir = "${local.source_root_dir}/"
   compile_pipelines_tag                    = "v1"
 }
 
@@ -252,6 +253,8 @@ locals {
     #"${local.base_component_image_dir}/build-push.py",
     "${local.base_component_image_dir}/BaseImage.dockerfile",
     "${local.base_component_image_dir}/GPUBaseImage.dockerfile",
+    "${local.source_root_dir}/BaseImage.dockerfile",
+    "${local.source_root_dir}/GPUBaseImage.dockerfile",
     #"${local.base_component_image_dir}/pyproject.toml",
     #"${local.base_component_image_dir}/components/vertex.py",
   ]

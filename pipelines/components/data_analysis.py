@@ -13,10 +13,6 @@
 # limitations under the License.
 
 import logging
-from typing import Optional
-
-from helpers import convert_time_column_to_string, detect_and_log_time_outliers, check_and_log_zero_negative_values
-
 
 from kfp.dsl import component, Output, Model, Dataset
 import os
@@ -113,6 +109,16 @@ def meridian_data_analysis_component(
     from meridian.data import load
     from meridian.model import model, spec, prior_distribution
     import dill
+    
+    from helpers import (convert_time_column_to_string, 
+                     detect_and_log_time_outliers, 
+                     check_and_log_zero_negative_values,
+                     reload_dataframe,
+                     validate_kpi_column,
+                     validate_geo_column,
+                     validate_population_column,
+                     validate_control_variables,
+                     validate_media_columns)
 
     # --- Reconfigure logging inside component if needed, or rely on root config ---
     # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Optional reconfig
@@ -168,28 +174,69 @@ def meridian_data_analysis_component(
         min_expected_date_str = "2000-01-01"
         max_expected_date_str = date.today().strftime('%Y-%m-%d')
         detect_and_log_time_outliers(df, time_col_name, min_expected_date_str, max_expected_date_str)
+
+        # --- Perform Geo Column Validation ---
+        geo_col_name = coord_to_columns.geo
+        population_col_name = coord_to_columns.population # Assuming this is defined in CoordToColumns
+        if geo_col_name: # Ensure geo_col_name is defined
+            validate_geo_column(df, geo_col_name, population_col_name)
+        else:
+            logging.warning("Geo column name not defined in coord_to_columns. Skipping Geo validation.")
+
+        # --- Perform Population Column Validation ---
+        # population_col_name was already fetched for geo validation
+        if population_col_name: # Ensure population_col_name is defined
+            validate_population_column(df, population_col_name, geo_col_name) # Pass geo_col_name for consistency checks
+        else:
+            logging.warning("Population column name not defined in coord_to_columns. Skipping Population validation.")
+
+        # --- Perform KPI Column Validation ---
+        kpi_col_name = coord_to_columns.kpi
+        if kpi_col_name: # Ensure kpi_col_name is defined
+            validate_kpi_column(df, kpi_col_name)
+        else:
+            logging.error("KPI column name not defined in coord_to_columns. Skipping KPI validation.")
         
+        # --- Perform Control Variables Validation ---
+        control_vars_list = coord_to_columns.controls
+        if control_vars_list: # Ensure control_vars_list is not empty or None
+            validate_control_variables(df, control_vars_list)
+        else:
+            logging.info("No control variables defined in coord_to_columns. Skipping control variable validation.")
+
+        # --- Perform Media Columns Validation ---
+        media_impression_cols = coord_to_columns.media
+        media_spend_cols = coord_to_columns.media_spend
+        # Pass media_to_channel for better logging, assuming spend columns map similarly or can be inferred
+        media_map_for_logging = correct_media_to_channel # Use this as a proxy for channel naming
+        if media_impression_cols or media_spend_cols:
+            validate_media_columns(df, media_impression_cols, media_spend_cols, media_map_for_logging)
+        else:
+            logging.info("No media impression or spend columns defined. Skipping media column validation.")
+
         # --- Perform Non-Negative Value Checks ---
+        # These checks are for other relevant columns, as KPI non-negativity is handled by validate_kpi_column
         columns_to_check_non_negative = []
-        # KPI
-        columns_to_check_non_negative.append(df.columns.kpi)
+        
         # Revenue per KPI
-        columns_to_check_non_negative.append(df.columns.revenue_per_kpi)
+        revenue_per_kpi_col_name = coord_to_columns.revenue_per_kpi
+        if revenue_per_kpi_col_name and revenue_per_kpi_col_name in df.columns:
+            columns_to_check_non_negative.append(revenue_per_kpi_col_name)
         # Media Spend
         for col in coord_to_columns.media_spend:
             if col in df.columns:
                 columns_to_check_non_negative.append(col)
         # Organic Media
-        for col in coord_to_columns.organic_media:
-            if col in df.columns:
-                columns_to_check_non_negative.append(col)
-        
+        if coord_to_columns.organic_media: # organic_media can be a list
+            for col in coord_to_columns.organic_media:
+                if col in df.columns:
+                    columns_to_check_non_negative.append(col)
         if columns_to_check_non_negative:
             check_and_log_zero_negative_values(df, columns_to_check_non_negative)
         # --- End Non-Negative Value Checks ---
         
         if reload_data:
-            load.DataFrameDataLoader.load = new_load
+            load.DataFrameDataLoader.load = reload_dataframe
 
         logging.info("First 5 rows of loaded data (post-conversion):")
         logging.info(df.head().to_string()) # Use to_string for logging DataFrames

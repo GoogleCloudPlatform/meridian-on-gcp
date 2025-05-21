@@ -1,6 +1,6 @@
 # Data Schema Format
 
-Assuming you want to create a table named MarketingData (you can change this name as needed) in a BigQuery Dataset, here is the DDL:
+Assuming you want to create a table named MeridianData (you can change this name as needed) in a BigQuery Dataset, here is the DDL:
 
 ```sql
 CREATE TABLE MeridianData (
